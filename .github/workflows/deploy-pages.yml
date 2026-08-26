@@ -1,4 +1,4 @@
-name: Deploy Kuma JLPT to GitHub Pages
+name: Deploy Kuma no Ryoku to GitHub Pages
 
 on:
   push:

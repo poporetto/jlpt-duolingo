@@ -123,7 +123,7 @@ export default function Home() {
   return (
     <main className="app-shell" style={{ '--level-accent': details.accent } as React.CSSProperties}>
       <header className="topbar">
-        <a className="brand" href="#top" aria-label="Kuma JLPT home"><span className="brand-mark">熊</span><span>Kuma JLPT</span></a>
+        <a className="brand" href="#top" aria-label="Kuma no Ryoku home"><span className="brand-mark">熊</span><span className="brand-copy"><b>Kuma no Ryoku</b><small>熊の力</small></span></a>
         <div className="top-stats" aria-label="Daily progress">
           <span>🔥 <b>12</b></span><span>◈ <b>{860 + Object.values(xpByLevel).reduce((a, b) => a + b, 0)}</b></span>
           <button className="settings-button" onClick={() => setSettingsOpen(true)} aria-label="Open learning settings">⚙</button>
@@ -141,6 +141,7 @@ export default function Home() {
           <span className="eyebrow">日本語能力試験 • {level}</span>
           <h1>{details.title.split(' ')[0]}<br /><em>{details.title.split(' ').slice(1).join(' ')}</em></h1>
           <p>{details.subtitle}. Build confidence with exam-shaped practice across grammar, kanji, vocabulary, and listening.</p>
+          <p className="brand-pun"><b>熊の力</b>で、<b>能力試験</b>へ。<span>Kuma’s power for your Japanese proficiency journey.</span></p>
           <button className="primary-button" onClick={openLesson}>Start {level} lesson <span>→</span></button>
           <div className="today-line"><span>Today</span><div><i style={{ width: `${Math.min(100, xp / 125 * 100)}%` }} /></div><b>{xp} XP</b></div>
         </div>
