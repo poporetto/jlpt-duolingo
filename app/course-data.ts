@@ -1,5 +1,6 @@
 import { expandQuestionBank } from './expanded-bank.ts';
 import { kanjiQuestions } from './kanji-questions.ts';
+import { listeningQuestions } from './listening-questions.ts';
 
 export type Level = 'N1' | 'N2' | 'N3' | 'N4' | 'N5';
 
@@ -469,4 +470,17 @@ for (const level of levels) {
     (question) => question.jpItemType === '漢字読み' || question.jpItemType === '表記',
   );
   questionBank[level] = [...keptHandAuthored, ...seeds, ...generated];
+}
+
+// Same story for 聴解: 416 generated items were rotations of ~60 template scripts,
+// and in listening the script *is* the question. Swap them for authored ones.
+for (const level of levels) {
+  const authored = listeningQuestions(level);
+  if (!authored.length) continue;
+  const seeds = handAuthored[level].filter((question) => question.type === 'LISTENING');
+  questionBank[level] = [
+    ...questionBank[level].filter((question) => question.type !== 'LISTENING'),
+    ...seeds,
+    ...authored,
+  ];
 }
