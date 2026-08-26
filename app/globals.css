@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-:root { --ink:#24322c; --green:#287359; --paper:#fbf7ed; --line:#ded8ca; --font-ui:Arial,Helvetica,var(--font-japanese),'Yu Mincho','Hiragino Mincho ProN',serif; --font-editorial:Georgia,'Times New Roman',var(--font-japanese),'Yu Mincho','Hiragino Mincho ProN',serif; }
+:root { --ink:#24322c; --green:#287359; --paper:#fbf7ed; --line:#ded8ca; --font-ui:Arial,Helvetica,var(--font-japanese),'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif; --font-editorial:Georgia,'Times New Roman',var(--font-japanese),'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif; }
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; }
 body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--font-ui); }

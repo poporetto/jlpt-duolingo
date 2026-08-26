@@ -1,3 +1,4 @@
-:HL["/jlpt-duolingo/_next/static/chunks/02c-restjxfth.css","style"]
-:HL["/jlpt-duolingo/_next/static/media/0e0cb2547b558e5c-s.p.09hws2qx5cnsf.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}},"staleTime":300,"buildId":"-tTghuB0uNjmyUn4n0Azg"}
+:HL["/jlpt-duolingo/_next/static/chunks/0ry9.r2kbh-77.css","style"]
+:HL["/jlpt-duolingo/_next/static/media/ddf08f3eeca797cf-s.p.0kmk3i.h3goug.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/jlpt-duolingo/_next/static/media/ef40981ccf68eb44-s.0q5zpmovloh.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}},"staleTime":300,"buildId":"z04qvIef9J87pKdOB5E5a"}

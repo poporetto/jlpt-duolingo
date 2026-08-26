@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import { Noto_Serif_JP } from 'next/font/google';
+import { Zen_Kaku_Gothic_New } from 'next/font/google';
 import './globals.css';
 
-const notoSerifJapanese = Noto_Serif_JP({
+const japaneseUiFont = Zen_Kaku_Gothic_New({
   subsets: ['latin'],
-  weight: '400',
+  weight: '500',
   display: 'swap',
   variable: '--font-japanese',
 });
@@ -36,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={notoSerifJapanese.variable}>
+    <html lang="en" className={japaneseUiFont.variable}>
       <body>{children}</body>
     </html>
   );
