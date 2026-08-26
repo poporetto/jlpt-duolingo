@@ -79,6 +79,7 @@ button { cursor:pointer; }
 .question-meta small { margin-left:auto; color:#96958c; letter-spacing:0; }
 .question-wrap>h2 { margin:20px 0 18px; font-family:var(--font-editorial); font-size:26px; letter-spacing:-.02em; }
 .sentence-card { min-height:92px; border-radius:18px; background:#f5efe2; display:grid; place-items:center; text-align:center; padding:23px; font-family:var(--font-editorial); font-size:23px; font-weight:700; line-height:1.5; border:1px solid #e4ddcf; }
+.sentence-text { display:block; width:100%; max-width:100%; }
 .sentence-card ruby { ruby-position:over; margin:0 .03em; }
 .sentence-card rt,.ruby-demo rt { font-size:.48em; font-family:var(--font-editorial); color:#9b5747; font-weight:700; letter-spacing:.04em; }
 .answers { display:grid; grid-template-columns:1fr 1fr; gap:11px; margin-top:17px; }

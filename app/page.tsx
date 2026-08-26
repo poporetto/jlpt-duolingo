@@ -45,7 +45,7 @@ const readSettings = (): SavedSettings => {
 
 function JapaneseText({ tokens, furigana }: { tokens?: Token[]; furigana: boolean }) {
   if (!tokens) return null;
-  return <>{tokens.map((token, index) => typeof token === 'string' ? <span key={index}>{token}</span> : <ruby key={index}>{token.kanji}{furigana && <rt>{token.reading}</rt>}</ruby>)}</>;
+  return <span className="sentence-text">{tokens.map((token, index) => typeof token === 'string' ? <span key={index}>{token}</span> : <ruby key={index}>{token.kanji}{furigana && <rt>{token.reading}</rt>}</ruby>)}</span>;
 }
 
 export default function Home() {
