@@ -36,3 +36,8 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+# generated
+.audio-tmp/
+*.tsbuildinfo
+.data-cache/

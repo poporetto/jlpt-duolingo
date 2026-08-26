@@ -1,35 +1,94 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useMemo, useState } from 'react';
-import { levelDetails, levels, questionBank, type Level, type Token } from './course-data';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { levelDetails, levels, questionBank, type Level, type Question, type QuestionType, type Token } from './course-data';
+import { playNarration, playSfx, rankJapaneseVoices, setSfxEnabled, stopNarration, unlockAudio } from './audio';
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 const asset = (path: string) => `${BASE_PATH}${path}`;
 
-const skills = [
-  { icon: '文', label: 'Grammar', color: 'coral' },
-  { icon: '漢', label: 'Kanji', color: 'amber' },
-  { icon: '語', label: 'Vocabulary', color: 'mint' },
-  { icon: '♫', label: 'Listening', color: 'blue' },
+const skills: { type: QuestionType; label: string; color: string }[] = [
+  { type: 'GRAMMAR', label: 'Grammar', color: 'coral' },
+  { type: 'KANJI', label: 'Kanji', color: 'amber' },
+  { type: 'VOCABULARY', label: 'Vocabulary', color: 'mint' },
+  { type: 'READING', label: 'Reading', color: 'plum' },
+  { type: 'LISTENING', label: 'Listening', color: 'blue' },
 ];
 
-const questionModeIcons = {
+const questionModeIcons: Record<QuestionType, { src: string; alt: string }> = {
   GRAMMAR: { src: '/mode-grammar.webp', alt: 'Open notebook and pencil' },
   KANJI: { src: '/mode-kanji.webp', alt: 'Calligraphy brush and reading card' },
   VOCABULARY: { src: '/mode-vocabulary.webp', alt: 'Picture vocabulary cards' },
   LISTENING: { src: '/mode-listening.webp', alt: 'Headphones with sound waves' },
-} as const;
+  READING: { src: '/mode-reading.webp', alt: 'An open reading book with a coral bookmark' },
+};
 
 const initialXp: Record<Level, number> = { N1: 0, N2: 12, N3: 35, N4: 70, N5: 120 };
-const levelMascots: Record<Level, { src: string; alt: string; stage: string }> = {
-  N5: { src: '/mascot-n5-baby.webp', alt: 'Baby Kuma reading a picture book', stage: 'Baby steps' },
-  N4: { src: '/mascot-n4-toddler.webp', alt: 'Toddler Kuma learning with hiragana blocks', stage: 'Curious toddler' },
-  N3: { src: '/mascot-n3-primary.webp', alt: 'Primary-school Kuma wearing a randoseru', stage: 'School explorer' },
-  N2: { src: '/mascot-n2-high-school.webp', alt: 'High-school Kuma studying Japanese', stage: 'Focused student' },
-  N1: { src: '/mascot-n1-karate.webp', alt: 'Kuma wearing a karate gi and holding a notebook', stage: 'Language mastery' },
+const levelMascots: Record<Level, { src: string; alt: string }> = {
+  N5: { src: '/mascot-n5-baby.webp', alt: 'Baby Kuma reading a picture book' },
+  N4: { src: '/mascot-n4-toddler.webp', alt: 'Toddler Kuma learning with hiragana blocks' },
+  N3: { src: '/mascot-n3-primary.webp', alt: 'Primary-school Kuma wearing a randoseru' },
+  N2: { src: '/mascot-n2-high-school.webp', alt: 'High-school Kuma studying Japanese' },
+  N1: { src: '/mascot-n1-karate.webp', alt: 'Kuma wearing a karate gi and holding a notebook' },
 };
-type SavedSettings = { furigana: boolean; unlimitedHearts: boolean; voiceUri: string };
+
+type SavedSettings = { furigana: boolean; unlimitedHearts: boolean; voiceUri: string; sound: boolean };
+type Streak = { last: string; count: number };
+type Missed = Partial<Record<Level, number[]>>;
+type MasteryScores = Partial<Record<Level, Record<string, number>>>;
+type MockResults = Partial<Record<Level, Record<string, { correct: number; total: number; completedAt: string }>>>;
+type CurriculumStage = { id: string; type: QuestionType; title: string; jp: string; itemType: string; description: string; levels: Level[] };
+
+const allLevels: Level[] = ['N1', 'N2', 'N3', 'N4', 'N5'];
+const curriculum: CurriculumStage[] = [
+  { id: 'kanji-reading', type: 'KANJI', title: 'Kanji readings', jp: '漢字読み', itemType: 'Kanji reading', description: 'Choose the correct reading for kanji in sentence context.', levels: allLevels },
+  { id: 'orthography', type: 'KANJI', title: 'Orthography', jp: '表記', itemType: 'Orthography', description: 'Choose the kanji spelling that matches a written reading.', levels: ['N2', 'N3', 'N4', 'N5'] },
+  { id: 'word-formation', type: 'VOCABULARY', title: 'Word formation', jp: '語形成', itemType: 'Word formation', description: 'Build words accurately from prefixes, suffixes and stems.', levels: ['N2'] },
+  { id: 'context', type: 'VOCABULARY', title: 'Words in context', jp: '文脈規定', itemType: 'Contextual vocabulary', description: 'Select the word that naturally completes a sentence.', levels: allLevels },
+  { id: 'paraphrase', type: 'VOCABULARY', title: 'Paraphrases', jp: '言い換え類義', itemType: 'Paraphrase', description: 'Recognise equivalent meanings and expressions.', levels: allLevels },
+  { id: 'usage', type: 'VOCABULARY', title: 'Word usage', jp: '用法', itemType: 'Usage', description: 'Identify the sentence that uses a word naturally.', levels: ['N1', 'N2', 'N3', 'N4'] },
+  { id: 'grammar-form', type: 'GRAMMAR', title: 'Grammar forms', jp: '文の文法1', itemType: 'Grammar form', description: 'Choose the form that fits meaning, register and structure.', levels: allLevels },
+  { id: 'sentence-composition', type: 'GRAMMAR', title: 'Sentence composition', jp: '文の文法2', itemType: 'Sentence assembly', description: 'Reorder chunks and identify the starred position.', levels: allLevels },
+  { id: 'text-grammar', type: 'GRAMMAR', title: 'Text grammar', jp: '文章の文法', itemType: 'Text grammar', description: 'Follow cohesion and grammar across a connected text.', levels: allLevels },
+  { id: 'reading-short', type: 'READING', title: 'Short passages', jp: '内容理解（短文）', itemType: 'Short passage', description: 'Find the purpose or key detail in a compact passage.', levels: allLevels },
+  { id: 'reading-mid', type: 'READING', title: 'Mid-size passages', jp: '内容理解（中文）', itemType: 'Mid-size passage', description: 'Trace reasons, relationships and the writer’s point.', levels: allLevels },
+  { id: 'reading-long', type: 'READING', title: 'Long passages', jp: '内容理解（長文）', itemType: 'Long passage', description: 'Sustain comprehension across a longer structured text.', levels: ['N1', 'N3'] },
+  { id: 'reading-integrated', type: 'READING', title: 'Integrated reading', jp: '統合理解', itemType: 'Integrated reading', description: 'Compare viewpoints and combine information from texts.', levels: ['N1', 'N2'] },
+  { id: 'reading-thematic', type: 'READING', title: 'Thematic reading', jp: '主張理解（長文）', itemType: 'Thematic reading', description: 'Identify the argument and the author’s broader position.', levels: ['N1', 'N2'] },
+  { id: 'information-retrieval', type: 'READING', title: 'Information retrieval', jp: '情報検索', itemType: 'Information retrieval', description: 'Scan notices, schedules and listings for exact conditions.', levels: allLevels },
+  { id: 'listening-task', type: 'LISTENING', title: 'Task comprehension', jp: '課題理解', itemType: 'Task comprehension', description: 'Work out what the speaker needs to do next.', levels: allLevels },
+  { id: 'listening-points', type: 'LISTENING', title: 'Key-point listening', jp: 'ポイント理解', itemType: 'Point comprehension', description: 'Listen for a requested detail under clear conditions.', levels: allLevels },
+  { id: 'listening-summary', type: 'LISTENING', title: 'General outline', jp: '概要理解', itemType: 'Summary comprehension', description: 'Infer the main idea, stance or overall situation.', levels: ['N1', 'N2', 'N3'] },
+  { id: 'listening-verbal', type: 'LISTENING', title: 'Verbal expressions', jp: '発話表現', itemType: 'Verbal expressions', description: 'Choose what to say in a pictured everyday situation.', levels: ['N3', 'N4', 'N5'] },
+  { id: 'listening-response', type: 'LISTENING', title: 'Quick response', jp: '即時応答', itemType: 'Quick response', description: 'Respond naturally to one short spoken utterance.', levels: allLevels },
+  { id: 'listening-integrated', type: 'LISTENING', title: 'Integrated listening', jp: '統合理解', itemType: 'Integrated listening', description: 'Combine a longer conversation with several conditions.', levels: ['N1', 'N2'] },
+];
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+const lessonChunks = (indices: number[], size = 8) => {
+  if (!indices.length) return [[]];
+  if (indices.length < size) return [indices];
+  const groups = Math.ceil(indices.length / 10);
+  const base = Math.floor(indices.length / groups);
+  const remainder = indices.length % groups;
+  let cursor = 0;
+  return Array.from({ length: groups }, (_, part) => {
+    const length = base + (part < remainder ? 1 : 0);
+    const chunk = indices.slice(cursor, cursor + length);
+    cursor += length;
+    return chunk;
+  });
+};
+
+const read = <T,>(key: string, fallback: T): T => {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
+  } catch { return fallback; }
+};
 
 const readLevel = (): Level => {
   if (typeof window === 'undefined') return 'N2';
@@ -37,187 +96,521 @@ const readLevel = (): Level => {
   return saved && levels.includes(saved) ? saved : 'N2';
 };
 
-const readXp = (): Record<Level, number> => {
-  if (typeof window === 'undefined') return initialXp;
-  try { return { ...initialXp, ...JSON.parse(window.localStorage.getItem('kuma-xp') ?? '{}') }; }
-  catch { return initialXp; }
+/* Options are shuffled per attempt. The bank is authored answer-first for
+ * readability, and without this every correct answer would sit in slot 1. */
+const mulberry32 = (seed: number) => () => {
+  seed = (seed + 0x6d2b79f5) | 0;
+  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
 
-const readSettings = (): SavedSettings => {
-  const defaults = { furigana: true, unlimitedHearts: false, voiceUri: '' };
-  if (typeof window === 'undefined') return defaults;
-  try { return { ...defaults, ...JSON.parse(window.localStorage.getItem('kuma-settings') ?? '{}') }; }
-  catch { return defaults; }
+const permutation = (length: number, seed: number) => {
+  const random = mulberry32(seed);
+  const order = Array.from({ length }, (_, i) => i);
+  for (let i = length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
 };
 
 function JapaneseText({ tokens, furigana }: { tokens?: Token[]; furigana: boolean }) {
   if (!tokens) return null;
-  return <span className="sentence-text">{tokens.map((token, index) => typeof token === 'string' ? <span key={index}>{token}</span> : <ruby key={index}>{token.kanji}{furigana && <rt>{token.reading}</rt>}</ruby>)}</span>;
+  return (
+    <span className="sentence-text">
+      {tokens.map((token, index) => {
+        if (typeof token === 'string') return <span key={index}>{token}</span>;
+        // The item under test is underlined and never furigana'd — otherwise a
+        // kanji-reading question prints its own answer above the word.
+        if (token.target) return <u key={index} className="target-word">{token.kanji}</u>;
+        return <ruby key={index}>{token.kanji}{furigana && <rt>{token.reading}</rt>}</ruby>;
+      })}
+    </span>
+  );
 }
 
 export default function Home() {
   const [level, setLevel] = useState<Level>('N2');
   const [xpByLevel, setXpByLevel] = useState(initialXp);
+  const [streak, setStreak] = useState<Streak>({ last: '', count: 0 });
+  const [missed, setMissed] = useState<Missed>({});
+  const [masteryScores, setMasteryScores] = useState<MasteryScores>({});
+  const [mockResults, setMockResults] = useState<MockResults>({});
+  const [lessonKind, setLessonKind] = useState<'practice' | 'mock'>('practice');
+  const [activeMock, setActiveMock] = useState('');
+  const [pathwayOpen, setPathwayOpen] = useState(false);
   const [lessonOpen, setLessonOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [question, setQuestion] = useState(0);
+  const [order, setOrder] = useState<number[]>([]);
+  const [seed, setSeed] = useState(1);
+  const [step, setStep] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [checked, setChecked] = useState(false);
   const [complete, setComplete] = useState(false);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [wrongThisLesson, setWrongThisLesson] = useState<number[]>([]);
   const [hearts, setHearts] = useState(5);
   const [furigana, setFurigana] = useState(true);
   const [unlimitedHearts, setUnlimitedHearts] = useState(false);
+  const [sound, setSound] = useState(true);
   const [voiceUri, setVoiceUri] = useState('');
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [playing, setPlaying] = useState(false);
+  const [hasPlayed, setHasPlayed] = useState(false);
 
-  const questions = questionBank[level];
-  const current = questions[question];
-  const modeIcon = questionModeIcons[current.type];
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  // Nothing may be written back to localStorage until the saved values have been
+  // read in, or the first render's defaults overwrite the user's preferences.
+  const hydrated = useRef(false);
+
+  const bank = questionBank[level];
+  const current: Question | undefined = bank[order[step]];
   const details = levelDetails[level];
   const mascot = levelMascots[level];
   const xp = xpByLevel[level];
-  const japaneseVoices = useMemo(() => voices.filter((voice) => voice.lang.toLowerCase().startsWith('ja')), [voices]);
+  const levelMissed = useMemo(() => missed[level] ?? [], [missed, level]);
+  const japaneseVoices = useMemo(() => rankJapaneseVoices(voices), [voices]);
+  const outOfHearts = lessonKind === 'practice' && !unlimitedHearts && hearts === 0;
+
+  /* Shuffle this question's options, and map the authored answer onto its new slot. */
+  const view = useMemo(() => {
+    if (!current) return null;
+    const perm = permutation(current.options.length, seed + step * 7919);
+    return { options: perm.map((i) => current.options[i]), answer: perm.indexOf(current.answer) };
+  }, [current, seed, step]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      const settings = readSettings();
-      setLevel(readLevel()); setXpByLevel(readXp());
-      setFurigana(settings.furigana); setUnlimitedHearts(settings.unlimitedHearts); setVoiceUri(settings.voiceUri);
+      const settings = read<SavedSettings>('kuma-settings', { furigana: true, unlimitedHearts: false, voiceUri: '', sound: true });
+      setLevel(readLevel());
+      setXpByLevel(read('kuma-xp', initialXp));
+      setStreak(read<Streak>('kuma-streak', { last: '', count: 0 }));
+      setMissed(read<Missed>('kuma-missed', {}));
+      setMasteryScores(read<MasteryScores>('kuma-mastery-scores', {}));
+      setMockResults(read<MockResults>('kuma-mock-results', {}));
+      setFurigana(settings.furigana);
+      setUnlimitedHearts(settings.unlimitedHearts);
+      setVoiceUri(settings.voiceUri);
+      setSound(settings.sound);
+      setSfxEnabled(settings.sound);
+      hydrated.current = true;
     });
     const loadVoices = () => setVoices(window.speechSynthesis?.getVoices() ?? []);
     loadVoices();
     window.speechSynthesis?.addEventListener('voiceschanged', loadVoices);
-    return () => { window.cancelAnimationFrame(frame); window.speechSynthesis?.removeEventListener('voiceschanged', loadVoices); };
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.speechSynthesis?.removeEventListener('voiceschanged', loadVoices);
+    };
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem('kuma-settings', JSON.stringify({ furigana, unlimitedHearts, voiceUri }));
-  }, [furigana, unlimitedHearts, voiceUri]);
+    setSfxEnabled(sound);
+    if (!hydrated.current) return;
+    window.localStorage.setItem('kuma-settings', JSON.stringify({ furigana, unlimitedHearts, voiceUri, sound }));
+  }, [furigana, unlimitedHearts, voiceUri, sound]);
+
+  const closeLesson = useCallback(() => {
+    stopNarration();
+    setPlaying(false);
+    setLessonOpen(false);
+  }, []);
+
+  /* Both overlays are real modals: Escape closes, Tab stays inside, focus returns. */
+  useEffect(() => {
+    const open = lessonOpen || settingsOpen;
+    if (!open) return;
+    returnFocusRef.current = document.activeElement as HTMLElement;
+    dialogRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (settingsOpen) setSettingsOpen(false); else closeLesson();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), select, summary, [href]');
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      returnFocusRef.current?.focus();
+    };
+  }, [lessonOpen, settingsOpen, closeLesson]);
 
   const chooseLevel = (next: Level) => {
-    setLevel(next); window.localStorage.setItem('kuma-level', next);
-    setQuestion(0); setSelected(null); setChecked(false); setComplete(false);
+    playSfx('select');
+    setLevel(next);
+    window.localStorage.setItem('kuma-level', next);
   };
 
-  const openLesson = () => {
-    setLessonOpen(true); setQuestion(0); setSelected(null); setChecked(false); setComplete(false); setHearts(5);
+  const showPathway = () => {
+    playSfx('open');
+    setPathwayOpen(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  /** Build a run: optionally one skill only, and always lead with what you got wrong last time. */
+  const openLesson = (types?: QuestionType[], itemTypes?: string[], questionIndices?: number[]) => {
+    unlockAudio();
+    playSfx('open');
+    const previously = missed[level] ?? [];
+    const indices = bank
+      .map((question, index) => ({ question, index }))
+      .filter(({ question, index }) => (!types || types.includes(question.type)) && (!itemTypes || itemTypes.includes(question.itemType)) && (!questionIndices || questionIndices.includes(index)))
+      .map(({ index }) => index)
+      .sort((a, b) => {
+        const missedPriority = Number(previously.includes(b)) - Number(previously.includes(a));
+        if (missedPriority) return missedPriority;
+        return (masteryScores[level]?.[String(a)] ?? 0) - (masteryScores[level]?.[String(b)] ?? 0);
+      });
+    if (!indices.length) return;
+    setLessonKind('practice');
+    setActiveMock('');
+    setOrder(indices);
+    setSeed((value) => value + 1);
+    setStep(0); setSelected(null); setChecked(false); setComplete(false);
+    setCorrectCount(0); setWrongThisLesson([]); setHearts(5); setHasPlayed(false);
+    setLessonOpen(true);
+  };
+
+  /** Replay the run that just ended. openLesson() with no arguments would rebuild
+   *  from the whole level bank, which is now hundreds of questions long. */
+  const retryLesson = () => {
+    unlockAudio();
+    playSfx('open');
+    setSeed((value) => value + 1);
+    setStep(0); setSelected(null); setChecked(false); setComplete(false);
+    setCorrectCount(0); setWrongThisLesson([]); setHearts(5); setHasPlayed(false);
+  };
+
+  const openMock = (form: number) => {
+    const offset = (form - 1) * 3;
+    const indices = levelCurriculum.flatMap((family) => {
+      const familyIndices = bank.map((question, index) => ({ question, index })).filter(({ question }) => question.itemType === family.itemType).map(({ index }) => index);
+      return Array.from({ length: Math.min(3, familyIndices.length) }, (_, part) => familyIndices[(offset + part) % familyIndices.length]);
+    });
+    if (!indices.length) return;
+    unlockAudio();
+    playSfx('open');
+    setLessonKind('mock');
+    setActiveMock(`form-${form}`);
+    setOrder(indices);
+    setSeed((value) => value + form * 101);
+    setStep(0); setSelected(null); setChecked(false); setComplete(false);
+    setCorrectCount(0); setWrongThisLesson([]); setHearts(5); setHasPlayed(false);
+    setLessonOpen(true);
   };
 
   const playListening = () => {
-    if (!current.narration || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(current.narration);
-    utterance.lang = 'ja-JP'; utterance.rate = level === 'N1' ? 0.98 : level === 'N2' ? 0.92 : level === 'N3' ? 0.86 : 0.78;
-    const selectedVoice = voices.find((voice) => voice.voiceURI === voiceUri) ?? japaneseVoices[0];
-    if (selectedVoice) utterance.voice = selectedVoice;
-    window.speechSynthesis.speak(utterance);
+    if (!current?.narration) return;
+    setPlaying(true);
+    setHasPlayed(true);
+    playNarration(current, level, {
+      basePath: BASE_PATH,
+      voiceUri,
+      voices,
+      onEnd: () => setPlaying(false),
+    });
+  };
+
+  const finishLesson = (finalCorrect: number, wrong: number[]) => {
+    stopNarration();
+    setPlaying(false);
+    const gained = finalCorrect * 5;
+    const nextXp = { ...xpByLevel, [level]: xp + gained };
+    setXpByLevel(nextXp);
+    window.localStorage.setItem('kuma-xp', JSON.stringify(nextXp));
+
+    if (lessonKind === 'mock') {
+      const nextResults: MockResults = { ...mockResults, [level]: { ...(mockResults[level] ?? {}), [activeMock]: { correct: finalCorrect, total: order.length, completedAt: new Date().toISOString() } } };
+      setMockResults(nextResults);
+      window.localStorage.setItem('kuma-mock-results', JSON.stringify(nextResults));
+      setComplete(true);
+      window.setTimeout(() => playSfx('complete'), 120);
+      return;
+    }
+
+    // Missed questions persist and lead the next run — spaced repetition, cheaply.
+    // Only the items this run actually asked about may be cleared.
+    const attempted = new Set(order);
+    const untouched = (missed[level] ?? []).filter((index) => !attempted.has(index));
+    const nextMissed: Missed = { ...missed, [level]: [...untouched, ...wrong] };
+    setMissed(nextMissed);
+    window.localStorage.setItem('kuma-missed', JSON.stringify(nextMissed));
+
+    // A question is mastered only after two correct lesson attempts. A miss
+    // resets that streak, putting the item back at the front of spaced review.
+    const wrongSet = new Set(wrong);
+    const levelScores = { ...(masteryScores[level] ?? {}) };
+    order.forEach((index) => {
+      const key = String(index);
+      levelScores[key] = wrongSet.has(index) ? 0 : Math.min(2, (levelScores[key] ?? 0) + 1);
+    });
+    const nextScores: MasteryScores = { ...masteryScores, [level]: levelScores };
+    setMasteryScores(nextScores);
+    window.localStorage.setItem('kuma-mastery-scores', JSON.stringify(nextScores));
+
+    const day = today();
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const nextStreak: Streak = streak.last === day
+      ? streak
+      : { last: day, count: streak.last === yesterday ? streak.count + 1 : 1 };
+    setStreak(nextStreak);
+    window.localStorage.setItem('kuma-streak', JSON.stringify(nextStreak));
+
+    setComplete(true);
+    window.setTimeout(() => playSfx('complete'), 120);
   };
 
   const continueLesson = () => {
+    if (!current || !view) return;
     if (!checked) {
       if (selected === null) return;
       setChecked(true);
-      if (selected !== current.answer && !unlimitedHearts) setHearts((value) => Math.max(0, value - 1));
+      const right = selected === view.answer;
+      playSfx(right ? 'correct' : 'incorrect');
+      if (right) setCorrectCount((value) => value + 1);
+      else {
+        setWrongThisLesson((value) => [...value, order[step]]);
+        if (!unlimitedHearts) setHearts((value) => Math.max(0, value - 1));
+      }
       return;
     }
-    if (question < questions.length - 1) {
-      setQuestion(question + 1); setSelected(null); setChecked(false);
+    if (outOfHearts) return;
+    stopNarration();
+    setPlaying(false);
+    if (step < order.length - 1) {
+      playSfx('advance');
+      setStep(step + 1); setSelected(null); setChecked(false); setHasPlayed(false);
     } else {
-      const next = { ...xpByLevel, [level]: xp + 20 };
-      setXpByLevel(next); window.localStorage.setItem('kuma-xp', JSON.stringify(next)); setComplete(true);
+      finishLesson(correctCount, wrongThisLesson);
     }
   };
+
+  /* Answer with the number keys, confirm with Enter — the way you'd sit an exam. */
+  useEffect(() => {
+    if (!lessonOpen || complete || !view) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const index = Number(event.key) - 1;
+      if (index >= 0 && index < view.options.length && !checked) {
+        event.preventDefault();
+        playSfx('select');
+        setSelected(index);
+      } else if (event.key === 'Enter' && (document.activeElement as HTMLElement)?.tagName !== 'BUTTON') {
+        event.preventDefault();
+        continueLesson();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
+  const totalXp = Object.values(xpByLevel).reduce((a, b) => a + b, 0);
+  const levelMastered = Object.entries(masteryScores[level] ?? {}).filter(([, score]) => score >= 2).map(([index]) => Number(index));
+  const levelCurriculum = curriculum.filter((stage) => stage.levels.includes(level));
+  const levelPathStages = levelCurriculum.flatMap((stage) => {
+    const indices = bank.map((question, index) => ({ question, index })).filter(({ question }) => question.itemType === stage.itemType).map(({ index }) => index);
+    const chunks = lessonChunks(indices);
+    return chunks.map((questionIndices, part) => ({ ...stage, questionIndices, part, parts: chunks.length, pathId: `${stage.id}-${part + 1}` }));
+  });
+  const levelCompletedStages = levelPathStages.filter((stage) => stage.questionIndices.length >= 8 && stage.questionIndices.every((index) => levelMastered.includes(index))).map((stage) => stage.pathId);
+  const overallProgress = levelPathStages.length ? Math.round((levelCompletedStages.length / levelPathStages.length) * 100) : 0;
+  const curriculumComplete = bank.length > 0 && bank.every((_, index) => (masteryScores[level]?.[String(index)] ?? 0) >= 2);
+  const skillProgress = skills.map((skill) => {
+    const relevantStages = levelPathStages.filter((stage) => stage.type === skill.type);
+    const total = relevantStages.length;
+    const done = relevantStages.filter((stage) => levelCompletedStages.includes(stage.pathId)).length;
+    return { ...skill, total, done, percent: total ? Math.round((done / total) * 100) : 0 };
+  });
+  const longOptions = (view?.options ?? []).some((option) => option.length > 11);
+  const veiled = !!current?.revealAfterAudio && !hasPlayed;
 
   return (
     <main className="app-shell" style={{ '--level-accent': details.accent } as React.CSSProperties}>
       <header className="topbar">
-        <a className="brand" href="#top" aria-label="Kuma no Ryoku home"><span className="brand-mark">熊</span><span className="brand-copy"><b>Kuma no Ryoku</b><small>熊の力</small></span></a>
+        <a className="brand" href="#top" onClick={() => setPathwayOpen(false)} aria-label="Kuma no Ryoku welcome screen"><span className="brand-mark"><Image src={asset('/brand-bear-head.webp')} alt="" width={192} height={192} priority /></span><span className="brand-copy"><b>Kuma no Ryoku</b><small>熊の力</small></span></a>
         <div className="top-stats" aria-label="Daily progress">
-          <span>🔥 <b>12</b></span><span>◈ <b>{860 + Object.values(xpByLevel).reduce((a, b) => a + b, 0)}</b></span>
-          <button className="settings-button" onClick={() => setSettingsOpen(true)} aria-label="Open learning settings">⚙</button>
-          <button className="avatar" aria-label="Open profile">A</button>
+          <span title={streak.count ? `${streak.count}-day streak` : 'Finish a lesson to start a streak'}><Image className="top-stat-icon" src={asset('/ui-streak.webp')} alt="" width={160} height={160} /><b>{streak.count}</b></span>
+          <span title="Total XP"><Image className="top-stat-icon" src={asset('/ui-points.webp')} alt="" width={160} height={160} /><b>{totalXp}</b></span>
+          <button className="settings-button" onClick={() => { unlockAudio(); playSfx('select'); setSettingsOpen(true); }} aria-label="Open learning settings"><Image src={asset('/ui-settings.webp')} alt="" width={160} height={160} /></button>
+          <button className="avatar" aria-label="Open profile"><Image src={asset('/ui-profile.webp')} alt="" width={160} height={160} /></button>
         </div>
       </header>
 
       <nav className="level-nav" aria-label="JLPT level">
         <span>Choose your level</span>
-        <div>{levels.map((item) => <button key={item} className={level === item ? 'active' : ''} onClick={() => chooseLevel(item)}>{item}</button>)}</div>
+        <div>{levels.map((item) => <button key={item} className={level === item ? 'active' : ''} aria-pressed={level === item} onClick={() => chooseLevel(item)}>{item}</button>)}</div>
       </nav>
 
-      <section id="top" className="hero">
+      {!pathwayOpen ? <><section id="top" className="hero">
         <div className="hero-copy">
           <span className="eyebrow">日本語能力試験 • {level}</span>
           <h1>{details.title.split(' ')[0]}<br /><em>{details.title.split(' ').slice(1).join(' ')}</em></h1>
-          <p>{details.subtitle}. Build confidence with exam-shaped practice across grammar, kanji, vocabulary, and listening.</p>
+          <p>{details.subtitle}. Build confidence with exam-shaped practice across grammar, kanji, vocabulary, reading and listening.</p>
           <p className="brand-pun"><b>熊の力</b>で、<b>能力試験</b>へ。<span>Kuma’s power for your Japanese proficiency journey.</span></p>
-          <button className="primary-button" onClick={openLesson}>Start {level} lesson <span>→</span></button>
-          <div className="today-line"><span>Today</span><div><i style={{ width: `${Math.min(100, xp / 125 * 100)}%` }} /></div><b>{xp} XP</b></div>
+          <button className="primary-button" onClick={showPathway}>View {level} pathway <span>→</span></button>
+          <div className="today-line"><span>Today</span><div><i style={{ width: `${Math.min(100, (xp / 125) * 100)}%` }} /></div><b>{xp} XP</b></div>
         </div>
 
         <div className="mascot-card">
           <span className="speech-bubble">{level}も一緒に頑張ろう！<small>Let’s learn together!</small></span>
           <div className="sun" />
           <Image key={level} className="level-mascot" src={asset(mascot.src)} alt={mascot.alt} width={1024} height={1536} priority />
-          <span className="mascot-note">{mascot.stage}<br /><b>Kuma • {level}</b></span>
         </div>
       </section>
 
       <section className="skill-strip" aria-label="Course skills">
-        {skills.map((skill) => <div className="skill-item" key={skill.label}><span className={`skill-icon ${skill.color}`}>{skill.icon}</span><div><b>{skill.label}</b><small>{level} practice</small></div></div>)}
+        {skills.map((skill) => {
+          const icon = questionModeIcons[skill.type];
+          return <div className="skill-item" key={skill.label}><span className={`skill-icon ${skill.color}`}><Image src={asset(icon.src)} alt="" width={160} height={160} /></span><div><b>{skill.label}</b><small>{level} practice</small></div></div>;
+        })}
       </section>
-
-      <section className="journey" id="journey">
-        <div className="section-heading"><div><span className="eyebrow">YOUR {level} JOURNEY</span><h2>Small steps. Real progress.</h2></div><span className="level-pill">Level {level} <b>✓</b></span></div>
-        <div className="path-preview">
-          <article className="lesson-card active"><span className="lesson-index">01</span><div><small>MIXED PRACTICE • 8 MIN</small><h3>{details.lesson}</h3><p>Exam-style vocabulary, grammar & listening</p></div><button aria-label={`Start ${level} lesson`} onClick={openLesson}>▶</button></article>
-          <article className="lesson-card"><span className="lesson-index">02</span><div><small>GRAMMAR • 7 MIN</small><h3>{details.grammar}</h3><p>Sentence formation & meaning</p></div><span className="locked">25 XP</span></article>
-          <article className="lesson-card faint"><span className="lesson-index">03</span><div><small>KANJI • 6 MIN</small><h3>{details.kanji}</h3><p>Reading in authentic context</p></div><span className="locked">🔒</span></article>
+      </> : <section id="top" className="pathway-home">
+        <div className="pathway-heading">
+          <button className="pathway-back" onClick={() => setPathwayOpen(false)}>← Welcome</button>
+          <div className="pathway-intro">
+            <div>
+              <span className="eyebrow">YOUR {level} LEARNING PATH</span>
+              <h1>Master every part<br />of the <em>{level}</em>.</h1>
+              <p>Complete every official JLPT item family for {level}, revisit weak questions, and finish with full exam-format coverage.</p>
+            </div>
+            <div className="overall-card">
+              <div className="progress-ring" style={{ '--progress': `${overallProgress * 3.6}deg` } as React.CSSProperties}><span><b>{overallProgress}%</b><small>mastered</small></span></div>
+              <div><small>SYLLABUS PROGRESS</small><b>{levelCompletedStages.length} of {levelPathStages.length} stages</b><p>{levelMastered.length}/{bank.length} practice items mastered{levelMissed.length ? ` • ${levelMissed.length} to review` : ''}</p></div>
+            </div>
+          </div>
         </div>
-      </section>
+
+        <div className="mastery-grid" aria-label={`${level} skill progress`}>
+          {skillProgress.map((skill) => {
+            const icon = questionModeIcons[skill.type];
+            return <article key={skill.type} className="mastery-card"><span className={`skill-icon ${skill.color}`}><Image src={asset(icon.src)} alt="" width={160} height={160} /></span><div><b>{skill.label}</b><small>{skill.done}/{skill.total} stages</small><div className="mastery-bar"><i style={{ width: `${skill.percent}%` }} /></div></div><strong>{skill.percent}%</strong></article>;
+          })}
+        </div>
+
+        <div className="pathway-layout">
+          <aside className="pathway-guide">
+            <Image src={asset(mascot.src)} alt={mascot.alt} width={1024} height={1536} />
+            <div><span>{level} guide</span><b>{overallProgress ? 'Keep climbing!' : 'Let’s begin!'}</b><small>熊の力で、一歩ずつ。</small></div>
+          </aside>
+          <div className="learning-path" aria-label={`${level} lesson pathway`}>
+            {levelPathStages.map((unit, index) => {
+              const unitQuestions = unit.questionIndices.map((questionIndex) => bank[questionIndex]);
+              const unitDone = levelCompletedStages.includes(unit.pathId);
+              const unitIcon = questionModeIcons[unit.type];
+              return <article className={`pathway-unit pathway-${unit.type.toLowerCase()} ${unitDone ? 'completed' : ''}`} key={unit.pathId}>
+                <span className="pathway-step">{unitDone ? '✓' : String(index + 1).padStart(2, '0')}</span>
+                <div className="pathway-unit-icon"><Image src={asset(unitIcon.src)} alt="" width={160} height={160} /></div>
+                <div><small>{unit.jp} • {unit.type === 'KANJI' ? 'VOCABULARY' : unit.type} • {unitQuestions.length} QUESTIONS</small><h2>{unit.title}{unit.parts > 1 ? ` ${unit.part + 1}` : ''}</h2><p>{unit.description}</p></div>
+                <button disabled={unitQuestions.length < 8} aria-label={`Start ${unit.title}`} onClick={() => openLesson([unit.type], [unit.itemType], unit.questionIndices)}>{unitQuestions.length < 8 ? 'Building bank' : unitDone ? 'Practise' : 'Learn'}{unitQuestions.length >= 8 && <span>→</span>}</button>
+              </article>;
+            })}
+            <section className={`mock-gate ${curriculumComplete ? 'unlocked' : ''}`} aria-label={`${level} full mock tests`}>
+              <span className="mock-seal">{curriculumComplete ? '試' : '鍵'}</span>
+              <div className="mock-copy"><small>FINAL CHECKPOINT</small><h2>Full {level} mock tests</h2><p>{curriculumComplete ? 'Your curriculum is mastered. Test every official item family without changing lesson mastery.' : `Master all ${bank.length} curriculum questions twice across separate attempts to unlock three complete mixed mock forms.`}</p></div>
+              <div className="mock-forms">{[1, 2, 3].map((form) => {
+                const result = mockResults[level]?.[`form-${form}`];
+                return <button key={form} disabled={!curriculumComplete} onClick={() => openMock(form)}><span>Form {form}</span><b>{result ? `${result.correct}/${result.total}` : curriculumComplete ? 'Start test' : 'Locked'}</b></button>;
+              })}</div>
+            </section>
+          </div>
+        </div>
+      </section>}
 
       {settingsOpen && <div className="lesson-overlay" role="dialog" aria-modal="true" aria-label="Learning settings">
-        <div className="settings-panel">
+        <div className="settings-panel" ref={dialogRef} tabIndex={-1}>
           <header><div><span className="eyebrow">LEARNING PREFERENCES</span><h2>Settings</h2></div><button className="close-button" onClick={() => setSettingsOpen(false)} aria-label="Close settings">×</button></header>
-          <div className="setting-row"><div className="setting-symbol">振</div><div><b>Show furigana</b><p>Display small readings above kanji during lessons.</p><span className="ruby-demo"><ruby>日本語<rt>{furigana ? 'にほんご' : ''}</rt></ruby></span></div><button className={`toggle ${furigana ? 'on' : ''}`} onClick={() => setFurigana(!furigana)} role="switch" aria-checked={furigana}><i /></button></div>
-          <div className="setting-row"><div className="setting-symbol heart-symbol">♥</div><div><b>Unlimited hearts</b><p>Practice freely without losing hearts after mistakes.</p></div><button className={`toggle ${unlimitedHearts ? 'on' : ''}`} onClick={() => setUnlimitedHearts(!unlimitedHearts)} role="switch" aria-checked={unlimitedHearts}><i /></button></div>
-          <div className="setting-row voice-setting"><div className="setting-symbol voice-symbol">♫</div><div><b>Listening voice</b><p>Choose a Japanese voice installed on this device.</p><select value={voiceUri} onChange={(event) => setVoiceUri(event.target.value)} aria-label="Japanese listening voice"><option value="">Automatic Japanese voice</option>{japaneseVoices.map((voice) => <option key={voice.voiceURI} value={voice.voiceURI}>{voice.name} ({voice.lang})</option>)}</select></div></div>
+          <div className="setting-row"><div className="setting-symbol"><Image src={asset('/settings-furigana.webp')} alt="" width={160} height={160} /></div><div><b>Show furigana</b><p>Display small readings above kanji during lessons. Words being tested stay unmarked.</p><span className="ruby-demo"><ruby>日本語<rt>{furigana ? 'にほんご' : ''}</rt></ruby></span></div><button className={`toggle ${furigana ? 'on' : ''}`} onClick={() => { setFurigana(!furigana); playSfx('select'); }} role="switch" aria-checked={furigana} aria-label="Show furigana"><i /></button></div>
+          <div className="setting-row"><div className="setting-symbol heart-symbol"><Image src={asset('/settings-hearts.webp')} alt="" width={160} height={160} /></div><div><b>Unlimited hearts</b><p>Practice freely without losing hearts after mistakes.</p></div><button className={`toggle ${unlimitedHearts ? 'on' : ''}`} onClick={() => { setUnlimitedHearts(!unlimitedHearts); playSfx('select'); }} role="switch" aria-checked={unlimitedHearts} aria-label="Unlimited hearts"><i /></button></div>
+          <div className="setting-row"><div className="setting-symbol sound-symbol"><Image src={asset('/settings-sound.webp')} alt="" width={160} height={160} /></div><div><b>Sound effects</b><p>Koto, wood block and bell tones as you answer. Never plays over listening audio.</p></div><button className={`toggle ${sound ? 'on' : ''}`} onClick={() => { const next = !sound; setSound(next); setSfxEnabled(next); if (next) { unlockAudio(); playSfx('correct'); } }} role="switch" aria-checked={sound} aria-label="Sound effects"><i /></button></div>
+          <div className="setting-row voice-setting"><div className="setting-symbol voice-symbol"><Image src={asset('/settings-voice.webp')} alt="" width={160} height={160} /></div><div><b>Listening voice</b><p>Lessons use recorded audio. This voice is the fallback if a clip can’t load.</p><select value={voiceUri} onChange={(event) => setVoiceUri(event.target.value)} aria-label="Japanese listening voice"><option value="">Best available Japanese voice</option>{japaneseVoices.map((voice) => <option key={voice.voiceURI} value={voice.voiceURI}>{voice.name} ({voice.lang})</option>)}</select></div></div>
           <button className="save-settings" onClick={() => setSettingsOpen(false)}>Save preferences</button>
         </div>
       </div>}
 
-      {lessonOpen && <div className="lesson-overlay" role="dialog" aria-modal="true" aria-label={`${level} mixed practice lesson`}>
-        <div className="lesson-window">
+      {lessonOpen && current && view && <div className="lesson-overlay" role="dialog" aria-modal="true" aria-label={`${level} practice lesson`}>
+        <div className="lesson-window" ref={dialogRef} tabIndex={-1}>
           <header className="lesson-top">
-            <button className="close-button" onClick={() => { window.speechSynthesis?.cancel(); setLessonOpen(false); }} aria-label="Close lesson">×</button>
-            <div className="lesson-progress" aria-label={`Question ${question + 1} of ${questions.length}`}><i style={{ width: `${complete ? 100 : (question + 1) / questions.length * 100}%` }} /></div>
-            <span className="heart">♥ <b>{unlimitedHearts ? '∞' : hearts}</b></span>
+            <button className="close-button" onClick={closeLesson} aria-label="Close lesson">×</button>
+            <div className="lesson-progress" aria-label={`Question ${step + 1} of ${order.length}`}><i style={{ width: `${complete ? 100 : ((step + 1) / order.length) * 100}%` }} /></div>
+            <span className="heart" aria-label={unlimitedHearts ? 'Unlimited hearts' : `${hearts} hearts left`}>♥ <b>{unlimitedHearts ? '∞' : hearts}</b></span>
           </header>
 
-          {!complete ? <div className="question-wrap">
-            <div className="question-meta"><span className={`question-mode-icon mode-${current.type.toLowerCase()}`}><Image src={asset(modeIcon.src)} alt={modeIcon.alt} width={44} height={44} /></span><b>{current.itemType}</b><small>{level} • {question + 1}/{questions.length}</small></div>
-            <h2>{current.prompt}</h2>
+          {complete ? <div className="complete-card">
+            <div className="celebration">祝</div>
+            <span className="eyebrow">{level} {lessonKind === 'mock' ? 'MOCK TEST COMPLETE' : 'LESSON COMPLETE'}</span>
+            <h2>{lessonKind === 'mock' ? 'Test complete!' : 'That was bear-y good!'}</h2>
+            <p>{lessonKind === 'mock' ? 'Your test result is saved separately, so it does not change curriculum mastery.' : 'You practised the same 大問 families the JLPT uses: 文字・語彙, 文法, 読解 and 聴解.'}</p>
+            <div className="reward-row">
+              <div><small>XP EARNED</small><b>+{correctCount * 5} XP</b></div>
+              <div><small>SCORE</small><b>{correctCount} / {order.length}</b></div>
+            </div>
+            {lessonKind === 'practice' && wrongThisLesson.length > 0 && <p className="review-note">Saved for next time: {wrongThisLesson.map((index) => bank[index].jpItemType).join('、')}</p>}
+            <button className="primary-button" onClick={() => setLessonOpen(false)}>Back to my path <span>→</span></button>
+          </div> : outOfHearts && checked ? <div className="complete-card">
+            <div className="celebration hearts-gone">再</div>
+            <span className="eyebrow">OUT OF HEARTS</span>
+            <h2>Let’s go again</h2>
+            <p>You got {correctCount} of {step + 1} so far. Turn on unlimited hearts in settings if you’d rather practise without the limit.</p>
+            <button className="primary-button" onClick={retryLesson}>Retry lesson <span>↺</span></button>
+            <button className="ghost-button" onClick={closeLesson}>Back to my path</button>
+          </div> : <div className="question-wrap">
+            <div className="question-meta">
+              <span className={`question-mode-icon mode-${current.type.toLowerCase()}`}><Image src={asset(questionModeIcons[current.type].src)} alt={questionModeIcons[current.type].alt} width={44} height={44} /></span>
+              <div className="question-label"><b>{current.itemType}</b><small lang="ja">{current.jpItemType}</small></div>
+              <small className="question-count">{level} • {step + 1}/{order.length}</small>
+            </div>
+            {veiled ? <h2 className="prompt-veiled">まず 話を 聞いて ください。<small>Listen first — in 概要理解 the question comes after the audio.</small></h2> : <h2>{current.prompt}</h2>}
+
             {current.type === 'LISTENING' && <div className="listening-scene">
               {current.image && <Image src={asset(current.image)} alt={current.imageAlt ?? ''} width={180} height={180} />}
-              <button className="listen-button" onClick={playListening} aria-label="Play Japanese listening prompt"><span>▶</span><div><b>Play audio</b><small>{level === 'N1' || level === 'N2' ? 'Natural exam pace' : 'Clear learner pace'} • replay anytime</small></div></button>
+              <button className={`listen-button ${playing ? 'playing' : ''}`} onClick={playListening} aria-label="Play Japanese listening prompt">
+                <span>{playing ? '❚❚' : '▶'}</span>
+                <div><b>{playing ? 'Playing…' : 'Play audio'}</b><small>{level === 'N1' || level === 'N2' ? 'Natural exam pace' : 'Clear learner pace'} • replay anytime</small></div>
+              </button>
             </div>}
+
+            {current.passage && <div className="passage-card" lang="ja">{current.passage.map((line, index) => <p key={index}><JapaneseText tokens={line} furigana={furigana} /></p>)}</div>}
             {current.tokens && <div className="sentence-card" lang="ja"><JapaneseText tokens={current.tokens} furigana={furigana} /></div>}
-            <div className="answers">
-              {current.options.map((option, index) => {
-                const state = checked ? index === current.answer ? 'correct' : index === selected ? 'wrong' : '' : selected === index ? 'selected' : '';
-                return <button key={option} className={state} onClick={() => !checked && setSelected(index)}><span>{index + 1}</span>{option}{checked && index === current.answer && <b>✓</b>}</button>;
+
+            {!veiled && <div className={`answers ${longOptions ? 'stacked' : ''}`} role="group" aria-label="Answer options">
+              {view.options.map((option, index) => {
+                const state = checked
+                  ? index === view.answer ? 'correct' : index === selected ? 'wrong' : ''
+                  : selected === index ? 'selected' : '';
+                return (
+                  <button key={index} className={state} aria-pressed={selected === index} disabled={checked} onClick={() => { playSfx('select'); setSelected(index); }}>
+                    <span>{index + 1}</span><em lang="ja">{option}</em>{checked && index === view.answer && <b>✓</b>}
+                  </button>
+                );
               })}
-            </div>
-            {checked && <div className={`feedback ${selected === current.answer ? 'success' : 'retry'}`} role="status"><b>{selected === current.answer ? 'Correct! よくできました' : 'Not quite — learn the clue'}</b><p>{current.note}</p>{current.transcript && <details><summary>Review listening transcript</summary><p lang="ja">{current.transcript}</p></details>}</div>}
-            <button className="check-button" disabled={selected === null} onClick={continueLesson}>{checked ? (question === questions.length - 1 ? 'Finish lesson' : 'Continue') : 'Check answer'}</button>
-          </div> : <div className="complete-card">
-            <div className="celebration">祝</div><span className="eyebrow">{level} LESSON COMPLETE</span><h2>That was bear-y good!</h2><p>You practised the same core item families used by the JLPT: language knowledge and level-appropriate listening comprehension.</p>
-            <div className="reward-row"><div><small>XP EARNED</small><b>+20 XP</b></div><div><small>QUESTIONS</small><b>4 / 4</b></div></div>
-            <button className="primary-button" onClick={() => setLessonOpen(false)}>Back to my path <span>→</span></button>
+            </div>}
+
+            {checked && <div className={`feedback ${selected === view.answer ? 'success' : 'retry'}`} role="status">
+              <b>{selected === view.answer ? 'Correct! よくできました' : 'Not quite — here’s the clue'}</b>
+              <p>{current.note}</p>
+              {current.narration && <details><summary>Review listening transcript</summary>{current.narration.map((line, index) => <p key={index} lang="ja" className={`script-line speaker-${line.speaker}`}>{line.text}</p>)}</details>}
+            </div>}
+
+            {!outOfHearts && !veiled && <button className="check-button" disabled={selected === null} onClick={continueLesson}>
+              {checked ? (step === order.length - 1 ? 'Finish lesson' : 'Continue') : 'Check answer'}
+            </button>}
           </div>}
         </div>
       </div>}
 
-      <footer>Original Kuma level mascots • Question illustrations © <a href="https://www.irasutoya.com/" target="_blank" rel="noreferrer">いらすとや</a> • <span>Sources:</span> <a href="https://www.irasutoya.com/2014/06/blog-post_9691.html" target="_blank" rel="noreferrer">station</a>, <a href="https://www.irasutoya.com/2018/04/blog-post_59.html" target="_blank" rel="noreferrer">meeting</a>, <a href="https://www.irasutoya.com/2017/11/blog-post_639.html" target="_blank" rel="noreferrer">shopping</a>, <a href="https://www.irasutoya.com/2015/01/blog-post_8.html" target="_blank" rel="noreferrer">weather</a></footer>
+      <footer>Curriculum follows the <a href="https://www.jlpt.jp/e/guideline/testsections.html" target="_blank" rel="noreferrer">official JLPT test-item composition</a> • Original Kuma level mascots • Question illustrations © <a href="https://www.irasutoya.com/" target="_blank" rel="noreferrer">いらすとや</a> • <span>Sources:</span> <a href="https://www.irasutoya.com/2014/06/blog-post_9691.html" target="_blank" rel="noreferrer">station</a>, <a href="https://www.irasutoya.com/2018/04/blog-post_59.html" target="_blank" rel="noreferrer">meeting</a>, <a href="https://www.irasutoya.com/2017/11/blog-post_639.html" target="_blank" rel="noreferrer">shopping</a>, <a href="https://www.irasutoya.com/2015/01/blog-post_8.html" target="_blank" rel="noreferrer">weather</a> • Kanji &amp; vocabulary data from <a href="http://www.edrdg.org/wiki/index.php/KANJIDIC_Project" target="_blank" rel="noreferrer">KANJIDIC</a> and <a href="https://www.edrdg.org/jmdict/j_jmdict.html" target="_blank" rel="noreferrer">JMdict</a> (© EDRDG, CC BY-SA 4.0) • Example sentences from <a href="https://tatoeba.org/" target="_blank" rel="noreferrer">Tatoeba</a> (CC BY 2.0 FR) • JLPT level assignments from <a href="http://www.tanos.co.uk/jlpt/" target="_blank" rel="noreferrer">Jonathan Waller’s JLPT Resources</a></footer>
     </main>
   );
 }
