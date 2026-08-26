@@ -1,5 +1,13 @@
 import type { Metadata } from 'next';
+import { Noto_Serif_JP } from 'next/font/google';
 import './globals.css';
+
+const notoSerifJapanese = Noto_Serif_JP({
+  subsets: ['latin'],
+  weight: '400',
+  display: 'swap',
+  variable: '--font-japanese',
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://poporetto.github.io/jlpt-duolingo/'),
@@ -28,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={notoSerifJapanese.variable}>
       <body>{children}</body>
     </html>
   );
