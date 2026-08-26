@@ -15,6 +15,13 @@ const skills = [
 ];
 
 const initialXp: Record<Level, number> = { N1: 0, N2: 12, N3: 35, N4: 70, N5: 120 };
+const levelMascots: Record<Level, { src: string; alt: string; stage: string }> = {
+  N5: { src: '/mascot-n5-baby.webp', alt: 'Baby Kuma reading a picture book', stage: 'Baby steps' },
+  N4: { src: '/mascot-n4-toddler.webp', alt: 'Toddler Kuma learning with hiragana blocks', stage: 'Curious toddler' },
+  N3: { src: '/mascot-n3-primary.webp', alt: 'Primary-school Kuma wearing a randoseru', stage: 'School explorer' },
+  N2: { src: '/mascot-n2-high-school.webp', alt: 'High-school Kuma studying Japanese', stage: 'Focused student' },
+  N1: { src: '/mascot-n1-karate.webp', alt: 'Kuma wearing a karate gi and holding a notebook', stage: 'Language mastery' },
+};
 type SavedSettings = { furigana: boolean; unlimitedHearts: boolean; voiceUri: string };
 
 const readLevel = (): Level => {
@@ -59,6 +66,7 @@ export default function Home() {
   const questions = questionBank[level];
   const current = questions[question];
   const details = levelDetails[level];
+  const mascot = levelMascots[level];
   const xp = xpByLevel[level];
   const japaneseVoices = useMemo(() => voices.filter((voice) => voice.lang.toLowerCase().startsWith('ja')), [voices]);
 
@@ -140,8 +148,8 @@ export default function Home() {
         <div className="mascot-card">
           <span className="speech-bubble">{level}も一緒に頑張ろう！<small>Let’s learn together!</small></span>
           <div className="sun" />
-          <Image src={asset('/irasutoya-study-bear.png')} alt="A bear studying Japanese with a notebook" width={332} height={400} priority />
-          <span className="mascot-note">Your study buddy<br /><b>Kuma</b></span>
+          <Image key={level} className="level-mascot" src={asset(mascot.src)} alt={mascot.alt} width={1024} height={1536} priority />
+          <span className="mascot-note">{mascot.stage}<br /><b>Kuma • {level}</b></span>
         </div>
       </section>
 
@@ -200,7 +208,7 @@ export default function Home() {
         </div>
       </div>}
 
-      <footer>Illustrations © <a href="https://www.irasutoya.com/" target="_blank" rel="noreferrer">いらすとや</a> • <span>Sources:</span> <a href="https://www.irasutoya.com/2014/05/blog-post_587.html" target="_blank" rel="noreferrer">study bear</a>, <a href="https://www.irasutoya.com/2014/06/blog-post_9691.html" target="_blank" rel="noreferrer">station</a>, <a href="https://www.irasutoya.com/2018/04/blog-post_59.html" target="_blank" rel="noreferrer">meeting</a>, <a href="https://www.irasutoya.com/2017/11/blog-post_639.html" target="_blank" rel="noreferrer">shopping</a>, <a href="https://www.irasutoya.com/2015/01/blog-post_8.html" target="_blank" rel="noreferrer">weather</a></footer>
+      <footer>Original Kuma level mascots • Question illustrations © <a href="https://www.irasutoya.com/" target="_blank" rel="noreferrer">いらすとや</a> • <span>Sources:</span> <a href="https://www.irasutoya.com/2014/06/blog-post_9691.html" target="_blank" rel="noreferrer">station</a>, <a href="https://www.irasutoya.com/2018/04/blog-post_59.html" target="_blank" rel="noreferrer">meeting</a>, <a href="https://www.irasutoya.com/2017/11/blog-post_639.html" target="_blank" rel="noreferrer">shopping</a>, <a href="https://www.irasutoya.com/2015/01/blog-post_8.html" target="_blank" rel="noreferrer">weather</a></footer>
     </main>
   );
 }
