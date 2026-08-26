@@ -39,7 +39,7 @@ button { cursor:pointer; }
 .today-line>div { width:130px; height:7px; border-radius:10px; background:#e1ddd2; overflow:hidden; }
 .today-line i { display:block; height:100%; background:#efae3f; border-radius:10px; transition:width .5s ease; }
 .mascot-card { min-height:390px; position:relative; display:flex; align-items:flex-end; justify-content:center; }
-.mascot-card img { position:relative; z-index:2; width:min(86%,370px); height:390px; object-fit:contain; mix-blend-mode:multiply; filter:drop-shadow(0 18px 12px rgba(80,55,24,.12)); animation:mascot-arrive .42s ease both; }
+.mascot-card img { position:relative; z-index:2; width:min(86%,370px); height:390px; object-fit:contain; filter:drop-shadow(0 18px 12px rgba(80,55,24,.12)); animation:mascot-arrive .42s ease both; }
 @keyframes mascot-arrive { from { opacity:0; transform:translateY(12px) scale(.96); } to { opacity:1; transform:translateY(0) scale(1); } }
 .sun { position:absolute; z-index:0; width:315px; height:315px; border-radius:50%; background:#f5c456; top:42px; right:7%; }
 .sun:after { content:''; position:absolute; inset:-13px; border:1px dashed #deac42; border-radius:50%; }
