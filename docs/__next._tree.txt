@@ -1,4 +1,4 @@
-:HL["/jlpt-duolingo/_next/static/chunks/0wlto5o2ro.ev.css","style"]
+:HL["/jlpt-duolingo/_next/static/chunks/0ojt4~0b9fs17.css","style"]
 :HL["/jlpt-duolingo/_next/static/media/ddf08f3eeca797cf-s.p.0kmk3i.h3goug.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
 :HL["/jlpt-duolingo/_next/static/media/ef40981ccf68eb44-s.0q5zpmovloh.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}},"staleTime":300,"buildId":"QoEnECV0q6W4T6bX8wT3P"}
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}},"staleTime":300,"buildId":"FAM8Ze22slLZyN1g-4SRo"}

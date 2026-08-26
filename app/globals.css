@@ -75,7 +75,12 @@ button { cursor:pointer; }
 .heart { color:#d94f3a; font-size:14px; }
 .question-wrap { padding:34px 46px 40px; }
 .question-meta { display:flex; align-items:center; gap:9px; color:var(--green); font-size:11px; letter-spacing:.1em; }
-.question-meta>span { width:34px; height:34px; display:grid; place-items:center; border-radius:10px; background:#d8ebe1; font-family:var(--font-editorial); font-size:15px; font-weight:800; }
+.question-mode-icon { width:46px; height:46px; flex:0 0 46px; display:grid; place-items:center; overflow:hidden; border-radius:13px; border:1px solid rgba(70,77,66,.08); }
+.question-mode-icon img { width:42px; height:42px; object-fit:contain; }
+.question-mode-icon.mode-grammar { background:#f8ddd5; }
+.question-mode-icon.mode-kanji { background:#d9ebe2; }
+.question-mode-icon.mode-vocabulary { background:#f8e5af; }
+.question-mode-icon.mode-listening { background:#dbe8f1; }
 .question-meta small { margin-left:auto; color:#96958c; letter-spacing:0; }
 .question-wrap>h2 { margin:20px 0 18px; font-family:var(--font-editorial); font-size:26px; letter-spacing:-.02em; }
 .sentence-card { min-height:92px; border-radius:18px; background:#f5efe2; display:grid; place-items:center; text-align:center; padding:23px; font-family:var(--font-editorial); font-size:23px; font-weight:700; line-height:1.5; border:1px solid #e4ddcf; }

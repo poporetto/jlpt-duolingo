@@ -1,9 +1,9 @@
 1:"$Sreact.fragment"
 2:I[47257,["/jlpt-duolingo/_next/static/chunks/0fsi8lw5utejl.js","/jlpt-duolingo/_next/static/chunks/0k6kr~ze-.qya.js","/jlpt-duolingo/_next/static/chunks/0d3tkj33oycf2.js"],"ClientPageRoot"]
-3:I[31713,["/jlpt-duolingo/_next/static/chunks/0fsi8lw5utejl.js","/jlpt-duolingo/_next/static/chunks/0k6kr~ze-.qya.js","/jlpt-duolingo/_next/static/chunks/0d3tkj33oycf2.js","/jlpt-duolingo/_next/static/chunks/06_k5f-um2v3e.js"],"default"]
+3:I[31713,["/jlpt-duolingo/_next/static/chunks/0fsi8lw5utejl.js","/jlpt-duolingo/_next/static/chunks/0k6kr~ze-.qya.js","/jlpt-duolingo/_next/static/chunks/0d3tkj33oycf2.js","/jlpt-duolingo/_next/static/chunks/0cd4mz7_7jro9.js"],"default"]
 6:I[97367,["/jlpt-duolingo/_next/static/chunks/0fsi8lw5utejl.js","/jlpt-duolingo/_next/static/chunks/0k6kr~ze-.qya.js","/jlpt-duolingo/_next/static/chunks/0d3tkj33oycf2.js"],"OutletBoundary"]
 7:"$Sreact.suspense"
-0:{"rsc":["$","$1","c",{"children":[["$","$L2",null,{"Component":"$3","serverProvidedParams":{"searchParams":{},"params":{},"promises":["$@4","$@5"]}}],[["$","script","script-0",{"src":"/jlpt-duolingo/_next/static/chunks/06_k5f-um2v3e.js","async":true}]],["$","$L6",null,{"children":["$","$7",null,{"name":"Next.MetadataOutlet","children":"$@8"}]}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"QoEnECV0q6W4T6bX8wT3P"}
+0:{"rsc":["$","$1","c",{"children":[["$","$L2",null,{"Component":"$3","serverProvidedParams":{"searchParams":{},"params":{},"promises":["$@4","$@5"]}}],[["$","script","script-0",{"src":"/jlpt-duolingo/_next/static/chunks/0cd4mz7_7jro9.js","async":true}]],["$","$L6",null,{"children":["$","$7",null,{"name":"Next.MetadataOutlet","children":"$@8"}]}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"FAM8Ze22slLZyN1g-4SRo"}
 4:{}
 5:"$0:rsc:props:children:0:props:serverProvidedParams:params"
 8:null

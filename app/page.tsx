@@ -14,6 +14,13 @@ const skills = [
   { icon: '♫', label: 'Listening', color: 'blue' },
 ];
 
+const questionModeIcons = {
+  GRAMMAR: { src: '/mode-grammar.webp', alt: 'Open notebook and pencil' },
+  KANJI: { src: '/mode-kanji.webp', alt: 'Calligraphy brush and reading card' },
+  VOCABULARY: { src: '/mode-vocabulary.webp', alt: 'Picture vocabulary cards' },
+  LISTENING: { src: '/mode-listening.webp', alt: 'Headphones with sound waves' },
+} as const;
+
 const initialXp: Record<Level, number> = { N1: 0, N2: 12, N3: 35, N4: 70, N5: 120 };
 const levelMascots: Record<Level, { src: string; alt: string; stage: string }> = {
   N5: { src: '/mascot-n5-baby.webp', alt: 'Baby Kuma reading a picture book', stage: 'Baby steps' },
@@ -65,6 +72,7 @@ export default function Home() {
 
   const questions = questionBank[level];
   const current = questions[question];
+  const modeIcon = questionModeIcons[current.type];
   const details = levelDetails[level];
   const mascot = levelMascots[level];
   const xp = xpByLevel[level];
@@ -186,7 +194,7 @@ export default function Home() {
           </header>
 
           {!complete ? <div className="question-wrap">
-            <div className="question-meta"><span>{current.badge}</span><b>{current.itemType}</b><small>{level} • {question + 1}/{questions.length}</small></div>
+            <div className="question-meta"><span className={`question-mode-icon mode-${current.type.toLowerCase()}`}><Image src={asset(modeIcon.src)} alt={modeIcon.alt} width={44} height={44} /></span><b>{current.itemType}</b><small>{level} • {question + 1}/{questions.length}</small></div>
             <h2>{current.prompt}</h2>
             {current.type === 'LISTENING' && <div className="listening-scene">
               {current.image && <Image src={asset(current.image)} alt={current.imageAlt ?? ''} width={180} height={180} />}
