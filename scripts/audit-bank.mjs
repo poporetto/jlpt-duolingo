@@ -42,9 +42,16 @@ for (const level of levels) {
 
     if (new Set(q.options).size !== q.options.length) findings.push([id, 'duplicate options']);
     if (q.answer < 0 || q.answer >= q.options.length) findings.push([id, 'answer out of range']);
+    if (!q.optionNotes) findings.push([id, 'missing per-option explanations']);
+    else if (q.optionNotes.length !== q.options.length) findings.push([id, 'option explanations do not match options']);
     if (!q.note || q.note.length < 20) findings.push([id, 'missing or thin note']);
     if (/^第\d+問/.test(q.prompt)) findings.push([id, 'template artifact in prompt']);
     if (/[Ѐ-ӿ가-힯]/.test(JSON.stringify(q))) findings.push([id, 'non-Japanese script in content']);
+    if (/机を.+飲|空が.+走|靴は.+甘|野菜を.+煮込|机の高さが.+話/.test(q.options.join('|'))) findings.push([id, 'obviously nonsensical generated distractor']);
+    const carrier = (q.tokens ?? []).map((token) => typeof token === 'string' ? token : token.kanji).join('');
+    const target = (q.tokens ?? []).find((token) => typeof token !== 'string' && token.target);
+    if (typeof target !== 'string' && target?.kanji === '大家' && carrier.includes('物理学') && target.reading !== 'たいか') findings.push([id, '大家 must be たいか in the expert/authority sense']);
+    if (typeof target !== 'string' && target?.kanji === '水' && carrier.includes('月・水・金') && target.reading !== 'すい') findings.push([id, '水 must be すい in a weekday list']);
     if (q.image) {
       images.add(q.image);
       if (!existsSync(`public${q.image}`)) findings.push([id, `image file missing: ${q.image}`]);
@@ -58,6 +65,30 @@ for (const level of levels) {
       else if (!clips.has(q.audio)) findings.push([id, `audio clip missing: ${q.audio}`]);
       if (q.jpItemType === '概要理解' && !q.revealAfterAudio) findings.push([id, '概要理解 must set revealAfterAudio']);
     }
+    // Item-shape checks. Each of these caught a real defect: 用法 that varied only
+    // the particle, 言い換え類義 offering dictionary definitions instead of
+    // substitutes, sentence assembly with no carrier text, and Tatoeba carriers
+    // carrying Latin or transliterated proper nouns.
+    const body = [...(q.tokens ?? []), ...(q.passage ?? []).flat()]
+      .map((t) => (typeof t === 'string' ? t : t.kanji)).join('');
+    // Narrow on purpose: ・ is also ordinary punctuation in schedules and
+    // paired loanwords. Only treat katakana on both sides as a personal name
+    // when it is followed by a Japanese title.
+    const transliteratedName = /(?:[ァ-ヶー]{2,}・)+[ァ-ヶー]{2,}(?:さん|氏|君|教授|先生)/;
+    const bodyWithoutUnits = body.replace(/(?:kWh|kg|cm|mm|km|mL|MB|GB)/g, '');
+    if (/[A-Za-z]{2,}/.test(bodyWithoutUnits) || transliteratedName.test(body)) {
+      findings.push([id, 'carrier contains a Latin word or a transliterated personal name']);
+    }
+    if (q.jpItemType === '用法' && new Set(q.options.map((o) => o.replace(/[はがをにでとへやからまで]/g, ''))).size === 1) {
+      findings.push([id, '用法 options differ only by particle — that tests particles, not usage']);
+    }
+    if (q.jpItemType === '言い換え類義' && q.options.every((o) => /こと$/.test(o))) {
+      findings.push([id, '言い換え類義 options are definitions, not substitutes that fit the sentence']);
+    }
+    if (q.jpItemType === '文の文法2（文の組み立て）' && /^[＿★\s]+。?$/.test(body)) {
+      findings.push([id, 'sentence assembly with no carrier text around the blanks']);
+    }
+
     const key = [level, JSON.stringify(q.tokens), JSON.stringify(q.passage), JSON.stringify(q.narration), q.prompt, q.options.join(',')].join('|');
     if (seen.has(key)) findings.push([id, `identical to ${seen.get(key)}`]); else seen.set(key, id);
   }

@@ -148,6 +148,10 @@ button { cursor:pointer; }
 .feedback { margin-top:16px; border-radius:14px; padding:14px 16px; }
 .feedback b { font-family:var(--font-editorial); }.feedback p { margin:5px 0 0; line-height:1.45; font-size:13px; }
 .feedback.success { background:#dcf3e7; color:#1d6b4c; }.feedback.retry { background:#ffebe7; color:#9d4032; }
+.option-explanations { list-style:none; display:grid; gap:7px; margin:12px 0 0; padding:11px 0 0; border-top:1px solid currentColor; }
+.option-explanations li { display:grid; grid-template-columns:23px 1fr; align-items:start; gap:8px; font-size:12px; line-height:1.5; opacity:.82; }
+.option-explanations li>span { width:21px; height:21px; display:grid; place-items:center; border-radius:7px; background:rgba(255,255,255,.62); font-weight:900; }
+.option-explanations li.is-answer { opacity:1; font-weight:700; }
 .feedback details { margin-top:9px; border-top:1px solid currentColor; padding-top:8px; }.feedback summary { cursor:pointer; font-weight:800; font-size:12px; }.feedback details p { color:inherit; }
 .check-button { width:100%; margin-top:18px; border:0; border-radius:14px; background:var(--green); color:white; font-weight:800; padding:15px; box-shadow:0 5px 0 #174b39; }
 .check-button:disabled { cursor:not-allowed; background:#c9cbc5; box-shadow:0 5px 0 #a6a8a2; }

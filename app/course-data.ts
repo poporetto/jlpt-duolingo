@@ -3,6 +3,7 @@ import { kanjiQuestions } from './kanji-questions.ts';
 import { listeningQuestions } from './listening-questions.ts';
 import { pictureForText } from './scenes.ts';
 import { readingQuestions, textGrammarQuestions } from './reading-questions.ts';
+import { usageQuestions, paraphraseQuestions } from './vocabulary-questions.ts';
 
 export type Level = 'N1' | 'N2' | 'N3' | 'N4' | 'N5';
 
@@ -35,6 +36,9 @@ export type Question = {
   /** Basename of a pre-rendered clip in public/audio (no extension). */
   audio?: string;
   options: string[];
+  /** Optional explanation for every authored option. It is shuffled together
+   * with the option so feedback always stays attached to the right choice. */
+  optionNotes?: string[];
   answer: number;
   note: string;
   image?: string;
@@ -514,6 +518,19 @@ for (const level of levels) {
   ];
 }
 
+// 用法 and 言い換え類義 were generated in the wrong shape — 用法 varied only the
+// particle, and 言い換え類義 offered dictionary definitions rather than substitutes
+// that fit the sentence. Replace both with authored items.
+for (const level of levels) {
+  const usage = usageQuestions(level);
+  const paraphrase = paraphraseQuestions(level);
+  questionBank[level] = [
+    ...questionBank[level].filter((q) => q.jpItemType !== '用法' && q.jpItemType !== '言い換え類義'),
+    ...usage,
+    ...paraphrase,
+  ];
+}
+
 // Illustrations for the text sections. The real 問題用紙 prints no picture on
 // 読解 or 文字・語彙 — these are a learning aid, not exam realism — so they go only
 // where the passage names a scene the art actually depicts, and never on 漢字 or
@@ -529,5 +546,25 @@ for (const level of levels) {
     ].map((token) => (typeof token === 'string' ? token : token.kanji)).join('');
     const picture = pictureForText(text);
     return picture.image ? { ...question, ...picture } : question;
+  });
+}
+
+// Every answer receives feedback after shuffling. Hand-authored and generated
+// items can provide precise per-option notes; older authored items receive a
+// section-aware explanation rather than leaving three choices unexplained.
+for (const level of levels) {
+  questionBank[level] = questionBank[level].map((question) => {
+    if (question.optionNotes?.length === question.options.length) return question;
+    const wrongReason = (option: string) => {
+      if (question.type === 'GRAMMAR') return `${option} does not fit the required attachment, particle, tense, meaning or register in this sentence. Compare the complete construction in the main explanation.`;
+      if (question.type === 'KANJI') return `${option} is a plausible reading or spelling near-miss, but it does not match the tested word in this sentence context.`;
+      if (question.type === 'VOCABULARY') return `${option} does not match the sentence’s collocation, nuance, word class or register. The surrounding noun, particle and verb determine the natural choice.`;
+      if (question.type === 'READING') return `${option} is not supported by the passage or answers a different detail. Match every part of the option against the evidence quoted in the main explanation.`;
+      return `${option} conflicts with a stated detail, sequence, speaker intention or reference word in the audio. Recheck the transcript against the main explanation.`;
+    };
+    return {
+      ...question,
+      optionNotes: question.options.map((option, index) => index === question.answer ? `Correct: ${question.note}` : wrongReason(option)),
+    };
   });
 }

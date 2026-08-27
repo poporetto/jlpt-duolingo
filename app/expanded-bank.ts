@@ -1,4 +1,5 @@
 import type { Level, Question, QuestionType } from './course-data';
+import { assemblyDetails, grammarChoiceNotes, usageChoices, type AssemblyTemplate } from './question-quality.ts';
 import { expandIntermediateBank } from './intermediate-bank.ts';
 import { expandAdvancedBank } from './advanced-bank.ts';
 
@@ -244,6 +245,19 @@ const n5Assembly: { sentence: string; options: [string, string, string, string];
   { sentence: 'にちようびに　＿＿＿　＿★＿　＿＿＿　＿＿＿　しました。', options: ['と', 'ともだち', 'かいもの', 'を'], order: 'にちようびに　ともだち　と　かいもの　を　しました', note: 'と marks the companion; を marks what was done.' },
 ];
 
+const n4Assembly: AssemblyTemplate[] = [
+  { sentence: 'この　カメラは＿＿＿　＿★＿　＿＿＿　＿＿＿　です。', options: ['でも', 'だれ', 'つかい', 'やすい'], order: ['だれ', 'でも', 'つかい', 'やすい'], clue: 'だれでも is one unit, and verb stem + やすい means easy to do.' },
+  { sentence: 'わたしは＿＿＿　＿★＿　＿＿＿　＿＿＿。', options: ['日本へ', '来年', '留学する', 'つもりです'], order: ['来年', '日本へ', '留学する', 'つもりです'], clue: 'The destination takes へ, and the plain verb modifies つもり.' },
+  { sentence: '出かける前の習慣ですが、＿＿＿　＿★＿　＿＿＿　＿＿＿　ください。', options: ['前に', '出かける', '窓を', '閉めて'], order: ['出かける', '前に', '窓を', '閉めて'], clue: 'Dictionary form + 前に means before doing something.' },
+  { sentence: '練習を続けたら、＿＿＿　＿★＿　＿＿＿　＿＿＿　なりました。', options: ['ように', '日本語が', '話せる', '少し'], order: ['日本語が', '少し', '話せる', 'ように'], clue: 'Potential verb + ようになる describes a change in ability.' },
+  { sentence: '約束の時間より早く着いたので、＿＿＿　＿★＿　＿＿＿　＿＿＿　いました。', options: ['待って', '駅で', '友達を', '一時間'], order: ['駅で', '一時間', '友達を', '待って'], clue: 'で marks the location, and を marks the person waited for.' },
+  { sentence: '天気予報によると、＿＿＿　＿★＿　＿＿＿　＿＿＿　そうです。', options: ['降る', '午後から', '雨が', '天気予報では'], order: ['天気予報では', '午後から', '雨が', '降る'], clue: 'The information source comes first; plain form + そうです reports hearsay.' },
+  { sentence: 'きのうの夜は、＿＿＿　＿★＿　＿＿＿　＿＿＿　しました。', options: ['ながら', '音楽を', '聞き', '勉強を'], order: ['音楽を', '聞き', 'ながら', '勉強を'], clue: 'Verb stem + ながら connects simultaneous actions.' },
+  { sentence: '返事がまだ来ないので、＿＿＿　＿★＿　＿＿＿　＿＿＿　分かりません。', options: ['参加できる', '仕事なので', 'かどうか', 'まだ'], order: ['仕事なので', '参加できる', 'かどうか', 'まだ'], clue: 'Embedded yes/no questions use かどうか before 分かる.' },
+  { sentence: 'すみませんが、＿＿＿　＿★＿　＿＿＿　＿＿＿　ください。', options: ['ないで', 'ここに', '荷物を', '置か'], order: ['ここに', '荷物を', '置か', 'ないで'], clue: 'The negative request is verb ない-form + でください.' },
+  { sentence: '昨日は＿＿＿　＿★＿　＿＿＿　＿＿＿　帰りました。', options: ['ので', '雨が', '降ってきた', '急いで'], order: ['雨が', '降ってきた', 'ので', '急いで'], clue: 'The reason clause ends in ので before the resulting action.' },
+];
+
 function makeN5(spec: Spec, index: number): Question {
   const word = n5Words[index % n5Words.length];
   const grammar = n5Grammar[index % n5Grammar.length];
@@ -257,8 +271,8 @@ function makeN5(spec: Spec, index: number): Question {
   if (spec.itemType === 'Orthography') return { ...common, prompt: '＿＿の ことばは どう かきますか。', tokens: [`${day}に　`, { kanji: word.reading, reading: '', target: true }, `を　かんじで　かきます。`], options: wordOptions(index), answer: 0, note: `${word.reading} is written ${word.word}.` };
   if (spec.itemType === 'Contextual vocabulary') return { ...common, prompt: '（　）に いれるのに いちばん いい ものを えらんで ください。', tokens: [`${name}：`, word.sentence.replace(word.word, '（　　）')], options: wordOptions(index), answer: 0, note: `${word.word}（${word.reading}） means ${word.meaning}; it is the natural fit in this context.` };
   if (spec.itemType === 'Paraphrase') return { ...common, prompt: 'ぶんと だいたい おなじ いみの ものを えらんで ください。', tokens: [`${day}、`, word.sentence], options: optionsFrom(n5Words, index, 'paraphrase'), answer: 0, note: `${word.word}（${word.reading}）means ${word.meaning}. In Japanese it can be restated as ${word.paraphrase}.` };
-  if (spec.itemType === 'Grammar form') return { ...common, prompt: '（　）に いれるのに いちばん いい ものを えらんで ください。', tokens: [`${name}・${day}：`, grammar.sentence], options: [grammar.answer, ...grammar.distractors], answer: 0, note: grammar.note };
-  if (spec.itemType === 'Sentence assembly') { const item = n5Assembly[index % n5Assembly.length]; return { ...common, prompt: '★ に はいる ものは どれですか。', tokens: [item.sentence], options: [...item.options], answer: 0, note: `Correct order: ${item.order}。The ★ is the second blank. ${item.note}` }; }
+  if (spec.itemType === 'Grammar form') return { ...common, prompt: '（　）に いれるのに いちばん いい ものを えらんで ください。', tokens: [grammar.sentence], options: [grammar.answer, ...grammar.distractors], answer: 0, note: grammar.note };
+  if (spec.itemType === 'Sentence assembly') { const item = n5Assembly[index % n5Assembly.length]; return { ...common, prompt: '★ に はいる ものは どれですか。', tokens: [item.sentence], options: [...item.options], answer: 0, note: `Correct order: ${item.order}。 The ★ is the second blank. ${item.note}` }; }
   if (spec.itemType === 'Text grammar') return { ...common, prompt: 'ぶんしょうの（　）に いちばん いい ものを えらんで ください。', passage: [[`${name}は　日よう日に　${place}へ　いきました。`], ['（　　）、そこで　友達に　あいました。']], options: ['そして', 'でも', 'まだ', 'だけ'], answer: 0, note: 'そして connects two events in sequence.' };
   if (spec.type === 'READING') {
     const isInfo = spec.itemType === 'Information retrieval';
@@ -291,9 +305,9 @@ function makeN4(spec: Spec, index: number): Question {
   if (spec.itemType === 'Orthography') return { ...common, prompt: '＿＿の ことばは どう 書きますか。', tokens: [{ kanji: word.reading, reading: '', target: true }, 'を　もう一度　たしかめました。'], options: words, answer: 0, note: `${word.reading} is written ${word.word}.` };
   if (spec.itemType === 'Contextual vocabulary') return { ...common, prompt: '（　）に 入れるのに いちばん いい ものを えらんで ください。', tokens: [word.sentence.replace(word.word, '（　　）')], options: words, answer: 0, note: `${word.word}（${word.reading}） means ${word.meaning} and fits this context.` };
   if (spec.itemType === 'Paraphrase') return { ...common, prompt: '＿＿と だいたい 同じ 意味の ものを えらんで ください。', tokens: [word.sentence], options: optionsFrom(n4Words, index, 'paraphrase'), answer: 0, note: `${word.word}（${word.reading}）means ${word.meaning}. In Japanese it can be restated as ${word.paraphrase}.` };
-  if (spec.itemType === 'Usage') return { ...common, prompt: `「${word.word}」の 使い方として いちばん いい ものを えらんで ください。`, options: [word.sentence, `${word.word}を　赤く　食べました。`, `きのうは　${word.word}な　天気でした。`, `机を　${word.word}に　歩きました。`], answer: 0, note: `Only the first sentence uses ${word.word} naturally with its meaning “${word.meaning}.”` };
-  if (spec.itemType === 'Grammar form') return { ...common, prompt: '（　）に 入れるのに いちばん いい ものを えらんで ください。', tokens: [`${name}は　${day}に　`, grammar.sentence], options: [grammar.answer, ...grammar.distractors], answer: 0, note: grammar.note };
-  if (spec.itemType === 'Sentence assembly') return { ...common, prompt: '★ に 入る ものは どれですか。', tokens: [`${name}は　${day}に　${place}で　＿＿＿　＿★＿　＿＿＿　＿＿＿。`], options: ['ために', '日本で　働く', '日本語を', '勉強しています'], answer: 0, note: `Correct order: 日本で働く ために 日本語を 勉強しています. The starred position is ために.` };
+  if (spec.itemType === 'Usage') return { ...common, prompt: `「${word.word}」の 使い方として いちばん いい ものを えらんで ください。`, ...usageChoices(n4Words, index) };
+  if (spec.itemType === 'Grammar form') return { ...common, prompt: '（　）に 入れるのに いちばん いい ものを えらんで ください。', tokens: [`${name}は　${day}に　`, grammar.sentence], options: [grammar.answer, ...grammar.distractors], optionNotes: grammarChoiceNotes(`N4 grammar pattern`, grammar.answer, grammar.distractors, grammar.note), answer: 0, note: grammar.note };
+  if (spec.itemType === 'Sentence assembly') { const item = n4Assembly[index % n4Assembly.length]; return { ...common, prompt: '★ に 入る ものは どれですか。', tokens: [index >= n4Assembly.length ? `${day}、${item.sentence}` : item.sentence], ...assemblyDetails(item) }; }
   if (spec.itemType === 'Text grammar') return { ...common, prompt: '文章の（　）に 入れるのに いちばん いい ものを えらんで ください。', passage: [[`${day}、${place}で　イベントが　あります。`], [`${name}も　参加したいです。（　　）、その日は　仕事があります。`], ['今、休めるかどうか　会社に　聞いています。']], options: ['しかし', 'それで', 'そして', 'たとえば'], answer: 0, note: 'しかし introduces the contrast between wanting to attend and having work.' };
   if (spec.type === 'READING') {
     const info = spec.itemType === 'Information retrieval';

@@ -1,4 +1,5 @@
 import type { Level, Question, QuestionType } from './course-data';
+import { assemblyDetails, grammarChoiceNotes, usageChoices, type AssemblyTemplate } from './question-quality.ts';
 
 type Spec = { itemType: string; jp: string; type: QuestionType };
 type Word = { word: string; reading: string; meaning: string; paraphrase: string; sentence: string };
@@ -212,25 +213,46 @@ const badge = (type: QuestionType) => type === 'KANJI' ? '漢字' : type === 'VO
 const pick4 = (words: Word[], index: number, field: 'word' | 'reading' | 'paraphrase') => [0, 1, 2, 3].map((offset) => words[(index + offset * 5) % words.length][field]);
 const slug = (value: string) => value.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
 
+const n3Assemblies: AssemblyTemplate[] = [
+  { sentence: '正直なところ、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['予想していた', '今回の結果は', 'もの', 'とは違う'], order: ['今回の結果は', '予想していた', 'もの', 'とは違う'], clue: '予想していた modifies もの, and ものとは違う closes the comparison.' },
+  { sentence: '機械は ＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['書いてある', '説明書に', 'とおりに', '操作してください'], order: ['説明書に', '書いてある', 'とおりに', '操作してください'], clue: '書いてある modifies とおり, producing 書いてあるとおりに.' },
+  { sentence: '説明を読んだ限りでは、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['利用者にとって', 'この制度は', '分かりやすい', 'とは言えない'], order: ['この制度は', '利用者にとって', '分かりやすい', 'とは言えない'], clue: 'にとって marks whose viewpoint the judgement uses.' },
+  { sentence: '空が明るいうちに、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['降らない', '雨が', 'うちに', '出発しましょう'], order: ['雨が', '降らない', 'うちに', '出発しましょう'], clue: 'The negative plain form directly modifies うち.' },
+  { sentence: 'いくら忙しくても、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['約束を忘れた', '彼が', 'わけでは', 'ありません'], order: ['彼が', '約束を忘れた', 'わけでは', 'ありません'], clue: 'The clause before わけではない is in plain form.' },
+  { sentence: 'この部署では、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['終わる', '会議が', 'たびに', '議事録を作る'], order: ['会議が', '終わる', 'たびに', '議事録を作る'], clue: 'Dictionary form + たびに expresses “every time”.' },
+  { sentence: '提出の前に、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['作文を直して', '先生に', 'もらった', 'ところです'], order: ['先生に', '作文を直して', 'もらった', 'ところです'], clue: 'The favor received is 作文を直してもらった.' },
+  { sentence: '運が悪いことに、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['着いた', '駅に', 'とたんに', '雨が降り出した'], order: ['駅に', '着いた', 'とたんに', '雨が降り出した'], clue: 'Past plain form + とたんに marks an immediate event.' },
+];
+
+const n2Assemblies: AssemblyTemplate[] = [
+  { sentence: '委員会としては、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['改めて検討する', '今回の提案は', '必要が', 'ある'], order: ['今回の提案は', '改めて検討する', '必要が', 'ある'], clue: 'The dictionary-form clause modifies 必要.' },
+  { sentence: '来月の話ですが、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['にあたって', '制度を導入する', '利用者への説明を', '行った'], order: ['制度を導入する', 'にあたって', '利用者への説明を', '行った'], clue: 'にあたって follows the event that creates the occasion.' },
+  { sentence: '一般論として、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['からといって', '費用が高い', '効果がある', 'とは限らない'], order: ['費用が高い', 'からといって', '効果がある', 'とは限らない'], clue: 'からといって pairs with とは限らない to reject an assumption.' },
+  { sentence: '調査が終わり次第、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['踏まえた', '結果を', 'うえで', '方針を決める'], order: ['結果を', '踏まえた', 'うえで', '方針を決める'], clue: 'Past form + うえで means after considering or doing something.' },
+  { sentence: '残念ながら、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['考慮せずに', '環境への影響を', '計画を進める', 'べきではない'], order: ['環境への影響を', '考慮せずに', '計画を進める', 'べきではない'], clue: '考慮せずに modifies the following action.' },
+  { sentence: 'この案件は複雑で、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['でさえ', '担当者', '判断に迷う', '問題だ'], order: ['担当者', 'でさえ', '判断に迷う', '問題だ'], clue: 'でさえ attaches directly to the noun it highlights.' },
+  { sentence: '状況が変わった以上、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['避けられない', '変更は', 'ものと', '思われる'], order: ['変更は', '避けられない', 'ものと', '思われる'], clue: 'The proposition before ものと思われる stays in plain form.' },
+  { sentence: '関係者の＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['あってこそ', '支援が', '計画を', '実現できる'], order: ['支援が', 'あってこそ', '計画を', '実現できる'], clue: 'あってこそ states the indispensable condition.' },
+];
+
 function languageQuestion(level: 'N3' | 'N2', spec: Spec, index: number, words: Word[], grammar: Grammar): Question | null {
   const word = words[index % words.length];
   const person = people[index % people.length];
   const day = days[(index * 3) % days.length];
   const place = places[(index * 5) % places.length];
-  const tag = `練習${index + 1}`;
   const common = { type: spec.type, badge: badge(spec.type), itemType: spec.itemType, jpItemType: spec.jp } as const;
-  if (spec.itemType === 'Kanji reading') return { ...common, prompt: '＿＿の言葉の読み方として最もよいものを選んでください。', tokens: [`${tag}：${person}は資料の内容を`, { kanji: word.word, reading: word.reading, target: true }, 'してから説明した。'], options: pick4(words, index, 'reading'), answer: 0, note: `${word.word} is read ${word.reading} and means ${word.meaning}.` };
-  if (spec.itemType === 'Orthography') return { ...common, prompt: '＿＿の言葉は漢字でどう書きますか。', tokens: [`${tag}：計画について`, { kanji: word.reading, reading: '', target: true }, 'する必要がある。'], options: pick4(words, index, 'word'), answer: 0, note: `${word.reading} is written ${word.word}.` };
-  if (spec.itemType === 'Contextual vocabulary') return { ...common, prompt: '（　）に入れるのに最もよいものを選んでください。', tokens: [`${tag}：${word.sentence.replace(word.word, '（　　）')}`], options: pick4(words, index, 'word'), answer: 0, note: `${word.word}（${word.reading}） means ${word.meaning}.` };
-  if (spec.itemType === 'Paraphrase') return { ...common, prompt: '＿＿と意味が最も近いものを選んでください。', tokens: [`${tag}：${word.sentence}`], options: pick4(words, index, 'paraphrase'), answer: 0, note: `${word.word}（${word.reading}）means ${word.meaning}. In Japanese it can be restated as ${word.paraphrase}.` };
-  if (spec.itemType === 'Usage') return { ...common, prompt: `「${word.word}」の使い方として最もよいものを選んでください。`, options: [`${tag}：${word.sentence}`, `${tag}：机を${word.word}に飲んだ。`, `${tag}：空が${word.word}を走っている。`, `${tag}：この靴は${word.word}で甘い。`], answer: 0, note: `Only the first sentence uses ${word.word} naturally in the sense “${word.meaning}.”` };
+  if (spec.itemType === 'Kanji reading') return { ...common, prompt: '＿＿の言葉の読み方として最もよいものを選んでください。', tokens: [`${person}は資料の内容を`, { kanji: word.word, reading: word.reading, target: true }, 'してから説明した。'], options: pick4(words, index, 'reading'), answer: 0, note: `${word.word} is read ${word.reading} and means ${word.meaning}.` };
+  if (spec.itemType === 'Orthography') return { ...common, prompt: '＿＿の言葉は漢字でどう書きますか。', tokens: ['計画について', { kanji: word.reading, reading: '', target: true }, 'する必要がある。'], options: pick4(words, index, 'word'), answer: 0, note: `${word.reading} is written ${word.word}.` };
+  if (spec.itemType === 'Contextual vocabulary') return { ...common, prompt: '（　）に入れるのに最もよいものを選んでください。', tokens: [word.sentence.replace(word.word, '（　　）')], options: pick4(words, index, 'word'), answer: 0, note: `${word.word}（${word.reading}） means ${word.meaning}.` };
+  if (spec.itemType === 'Paraphrase') return { ...common, prompt: '＿＿と意味が最も近いものを選んでください。', tokens: [word.sentence], options: pick4(words, index, 'paraphrase'), answer: 0, note: `${word.word}（${word.reading}）means ${word.meaning}. In Japanese it can be restated as ${word.paraphrase}.` };
+  if (spec.itemType === 'Usage') return { ...common, prompt: `「${word.word}」の使い方として最もよいものを選んでください。`, ...usageChoices(words, index) };
   if (spec.itemType === 'Word formation') {
     const formation = n2Formation[index % n2Formation.length];
-    return { ...common, prompt: `（　）に入れて「（　）${formation[1]}」という一つの言葉を作るとき、最もよいものを選んでください。`, tokens: [`${tag}：${formation[2]}`], options: [formation[0], ...formation[3]], answer: 0, note: formation[4] };
+    return { ...common, prompt: `（　）に入れて「（　）${formation[1]}」という一つの言葉を作るとき、最もよいものを選んでください。`, tokens: [formation[2]], options: [formation[0], ...formation[3]], answer: 0, note: formation[4] };
   }
-  if (spec.itemType === 'Grammar form') return { ...common, prompt: '（　）に入れるのに最もよいものを選んでください。', tokens: [`${tag}：${grammar.sentence}`], options: [grammar.answer, ...grammar.distractors], answer: 0, note: `${grammar.form}: ${grammar.note}` };
-  if (spec.itemType === 'Sentence assembly') return { ...common, prompt: '★に入るものはどれですか。', tokens: [`${tag}：${person}は ＿＿＿ ＿★＿ ＿＿＿ ＿＿＿ と話した。`], options: ['予想していた', '今回の結果は', 'もの', 'とは違う'], answer: 0, note: 'Correct order: 今回の結果は／予想していた／もの／とは違う. The starred second slot is 予想していた.' };
-  if (spec.itemType === 'Text grammar') return { ...common, prompt: '文章の（　）に入れるのに最もよいものを選んでください。', passage: [[`${tag}：${day}、${place}で説明会が開かれた。`], [`${person}は参加を希望していた。（　　）、急な仕事で会場へ行けなかった。`], ['そこで、後日公開された動画で内容を確認した。']], options: ['ところが', 'したがって', 'たとえば', 'つまり'], answer: 0, note: 'ところが introduces an unexpected contrast between the intention and what happened.' };
+  if (spec.itemType === 'Grammar form') return { ...common, prompt: '（　）に入れるのに最もよいものを選んでください。', tokens: [grammar.sentence], options: [grammar.answer, ...grammar.distractors], optionNotes: grammarChoiceNotes(grammar.form, grammar.answer, grammar.distractors, grammar.note), answer: 0, note: `${grammar.form}: ${grammar.note}` };
+  if (spec.itemType === 'Sentence assembly') { const bank = level === 'N3' ? n3Assemblies : n2Assemblies; const item = bank[index % bank.length]; return { ...common, prompt: '★に入るものはどれですか。', tokens: [index >= bank.length ? `${day}の会議で、${item.sentence}` : item.sentence], ...assemblyDetails(item) }; }
+  if (spec.itemType === 'Text grammar') return { ...common, prompt: '文章の（　）に入れるのに最もよいものを選んでください。', passage: [[`${day}、${place}で説明会が開かれた。`], [`${person}は参加を希望していた。（　　）、急な仕事で会場へ行けなかった。`], ['そこで、後日公開された動画で内容を確認した。']], options: ['ところが', 'したがって', 'たとえば', 'つまり'], answer: 0, note: 'ところが introduces an unexpected contrast between the intention and what happened.' };
   return null;
 }
 

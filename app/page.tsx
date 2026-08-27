@@ -258,7 +258,11 @@ export default function Home() {
   const view = useMemo(() => {
     if (!current) return null;
     const perm = permutation(current.options.length, seed + step * 7919);
-    return { options: perm.map((i) => current.options[i]), answer: perm.indexOf(current.answer) };
+    return {
+      options: perm.map((i) => current.options[i]),
+      optionNotes: current.optionNotes ? perm.map((i) => current.optionNotes?.[i] ?? '') : undefined,
+      answer: perm.indexOf(current.answer),
+    };
   }, [current, seed, step]);
 
   useEffect(() => {
@@ -632,13 +636,19 @@ export default function Home() {
   const totalXp = Object.values(xpByLevel).reduce((a, b) => a + b, 0);
   const levelMastered = Object.entries(masteryScores[level] ?? {}).filter(([, score]) => score >= 2).map(([index]) => Number(index));
   const levelCurriculum = curriculum.filter((stage) => stage.levels.includes(level));
+  const pathTypePriority: Record<QuestionType, number> = { VOCABULARY: 0, GRAMMAR: 1, KANJI: 2, READING: 3, LISTENING: 4 };
   const levelPathStages = levelCurriculum.flatMap((stage) => {
     const indices = bank.map((question, index) => ({ question, index })).filter(({ question }) => question.itemType === stage.itemType).map(({ index }) => index);
     const chunks = lessonChunks(indices);
     return chunks.map((questionIndices, part) => ({ ...stage, questionIndices, part, parts: chunks.length, pathId: `${stage.id}-${part + 1}` }));
+  }).sort((a, b) => {
+    // Spread every skill across the whole journey. Comparing normalized part
+    // positions prevents hundreds of kanji items from becoming one solid block.
+    const progressA = (a.part + 0.5) / a.parts;
+    const progressB = (b.part + 0.5) / b.parts;
+    return progressA - progressB || pathTypePriority[a.type] - pathTypePriority[b.type];
   });
   const levelCompletedStages = levelPathStages.filter((stage) => stage.questionIndices.length >= MIN_UNIT_QUESTIONS && stage.questionIndices.every((index) => levelMastered.includes(index))).map((stage) => stage.pathId);
-  const overallProgress = levelPathStages.length ? Math.round((levelCompletedStages.length / levelPathStages.length) * 100) : 0;
   const masteredCount = bank.reduce((n, _, index) => n + ((masteryScores[level]?.[String(index)] ?? 0) >= 2 ? 1 : 0), 0);
   const savedLevels = levels.map((item) => {
     const size = questionBank[item].length;
@@ -649,10 +659,15 @@ export default function Home() {
   const curriculumComplete = bank.length > 0 && bank.every((_, index) => (masteryScores[level]?.[String(index)] ?? 0) >= 2);
   const skillProgress = skills.map((skill) => {
     const relevantStages = levelPathStages.filter((stage) => stage.type === skill.type);
+    const relevantQuestions = bank.map((question, index) => ({ question, index })).filter(({ question }) => question.type === skill.type);
     const total = relevantStages.length;
     const done = relevantStages.filter((stage) => levelCompletedStages.includes(stage.pathId)).length;
-    return { ...skill, total, done, percent: total ? Math.round((done / total) * 100) : 0 };
+    const mastered = relevantQuestions.filter(({ index }) => levelMastered.includes(index)).length;
+    return { ...skill, total, done, percent: relevantQuestions.length ? Math.round((mastered / relevantQuestions.length) * 100) : 0 };
   });
+  // Kanji can have far more individual items than the other sections. Treat all
+  // five exam skills equally so “overall mastery” reflects balanced readiness.
+  const overallProgress = skillProgress.length ? Math.round(skillProgress.reduce((sum, skill) => sum + skill.percent, 0) / skillProgress.length) : 0;
   const longOptions = (view?.options ?? []).some((option) => option.length > 11);
   const veiled = !!current?.revealAfterAudio && !hasPlayed;
 
@@ -709,7 +724,7 @@ export default function Home() {
             </div>
             <div className="overall-card">
               <div className="progress-ring" style={{ '--progress': `${overallProgress * 3.6}deg` } as React.CSSProperties}><span><b>{overallProgress}%</b><small>mastered</small></span></div>
-              <div><small>SYLLABUS PROGRESS</small><b>{levelCompletedStages.length} of {levelPathStages.length} stages</b><p>{levelMastered.length}/{bank.length} practice items mastered{levelMissed.length ? ` • ${levelMissed.length} to review` : ''}</p></div>
+              <div><small>BALANCED SKILL PROGRESS</small><b>{levelCompletedStages.length} of {levelPathStages.length} stages</b><p>Grammar, kanji, vocabulary, reading and listening count equally • {levelMastered.length}/{bank.length} items mastered{levelMissed.length ? ` • ${levelMissed.length} to review` : ''}</p></div>
             </div>
           </div>
         </div>
@@ -888,6 +903,7 @@ export default function Home() {
             {checked && <div className={`feedback ${selected === view.answer ? 'success' : 'retry'}`} role="status">
               <b>{selected === view.answer ? 'Correct! よくできました' : 'Not quite — here’s the clue'}</b>
               <p><FuriganaText text={current.note} furigana={furigana} /></p>
+              {view.optionNotes && <ol className="option-explanations">{view.optionNotes.map((explanation, index) => <li key={index} className={index === view.answer ? 'is-answer' : ''}><span>{index + 1}</span><FuriganaText text={explanation} furigana={furigana} /></li>)}</ol>}
               {current.narration && <details><summary>Review listening transcript</summary>{current.narration.map((line, index) => <p key={index} lang="ja" className={`script-line speaker-${line.speaker}`}><FuriganaText text={line.text} furigana={furigana} /></p>)}</details>}
             </div>}
 

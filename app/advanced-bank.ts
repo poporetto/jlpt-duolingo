@@ -1,4 +1,5 @@
 import type { Level, Question, QuestionType } from './course-data';
+import { assemblyDetails, grammarChoiceNotes, usageChoices, type AssemblyTemplate } from './question-quality.ts';
 
 type Spec = { itemType: string; jp: string; type: QuestionType };
 type Word = { word: string; reading: string; meaning: string; paraphrase: string; sentence: string };
@@ -102,20 +103,30 @@ const badge = (type: QuestionType) => type === 'KANJI' ? '漢字' : type === 'VO
 const pick4 = (index: number, field: 'word' | 'reading' | 'paraphrase') => [0, 1, 2, 3].map((offset) => words[(index + offset * 5) % words.length][field]);
 const slug = (value: string) => value.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
 
+const assemblies: AssemblyTemplate[] = [
+  { sentence: '＿＿＿ ＿★＿ ＿＿＿ ＿＿＿ と言える。', options: ['見直す', 'これまでの前提を', 'に足る', 'ものだ'], order: ['これまでの前提を', '見直す', 'に足る', 'ものだ'], clue: '見直すに足る forms “worthy of reconsidering”.' },
+  { sentence: '資料を読む限り、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['十分な根拠に', 'その主張は', '基づいている', 'とは言い難い'], order: ['その主張は', '十分な根拠に', '基づいている', 'とは言い難い'], clue: '根拠に基づく is the fixed collocation, followed by a quoted judgement.' },
+  { sentence: '現時点では、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['検証する', '制度の効果を', 'に足る', 'データがない'], order: ['制度の効果を', '検証する', 'に足る', 'データがない'], clue: 'Verb + に足る modifies the following noun.' },
+  { sentence: '説明会での＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['をよそに', '住民の反対', '工事が', '進められた'], order: ['住民の反対', 'をよそに', '工事が', '進められた'], clue: 'をよそに attaches to the concern being disregarded.' },
+  { sentence: '例年どおりなら、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['公表される', '結果が', 'が早いか', '問い合わせが相次いだ'], order: ['結果が', '公表される', 'が早いか', '問い合わせが相次いだ'], clue: 'Dictionary form + が早いか marks an immediate sequence.' },
+  { sentence: 'この分野では、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['ですら', '専門家', '判断を誤る', 'ことがある'], order: ['専門家', 'ですら', '判断を誤る', 'ことがある'], clue: 'ですら follows the exceptional example being highlighted.' },
+  { sentence: '机上の議論ではなく、＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['即して', '現場の実情に', '対応を', '改めるべきだ'], order: ['現場の実情に', '即して', '対応を', '改めるべきだ'], clue: 'に即して is a fixed formal expression meaning “in accordance with”.' },
+  { sentence: '住民の＿＿＿ ＿★＿ ＿＿＿ ＿＿＿。', options: ['支援あっての', '改革は', 'ものだと', '忘れてはならない'], order: ['改革は', '支援あっての', 'ものだと', '忘れてはならない'], clue: 'XあってのY states that Y depends on X.' },
+];
+
 function language(spec: Spec, index: number): Question | null {
   const word = words[index % words.length];
   const pattern = grammar[index % grammar.length];
   const person = people[index % people.length];
   const context = settings[(index * 3) % settings.length];
-  const tag = `演習${index + 1}`;
   const common = { type: spec.type, badge: badge(spec.type), itemType: spec.itemType, jpItemType: spec.jp } as const;
-  if (spec.itemType === 'Kanji reading') return { ...common, prompt: '＿＿の言葉の読み方として最もよいものを一つ選びなさい。', tokens: [`${tag}：${person}は${context}で従来の前提を`, { kanji: word.word, reading: word.reading, target: true }, 'する必要があると述べた。'], options: pick4(index, 'reading'), answer: 0, note: `${word.word} is read ${word.reading}; it means ${word.meaning}.` };
-  if (spec.itemType === 'Contextual vocabulary') return { ...common, prompt: '（　）に入れるのに最もよいものを一つ選びなさい。', tokens: [`${tag}：${word.sentence.replace(word.word, '（　　）')}`], options: pick4(index, 'word'), answer: 0, note: `${word.word}（${word.reading}） means ${word.meaning}.` };
-  if (spec.itemType === 'Paraphrase') return { ...common, prompt: '＿＿の言葉と意味が最も近いものを一つ選びなさい。', tokens: [`${tag}：${word.sentence}`], options: pick4(index, 'paraphrase'), answer: 0, note: `${word.word}（${word.reading}）means ${word.meaning}. In Japanese it can be restated as ${word.paraphrase}.` };
-  if (spec.itemType === 'Usage') return { ...common, prompt: `「${word.word}」の使い方として最もよいものを一つ選びなさい。`, options: [`${tag}：${word.sentence}`, `${tag}：新鮮な野菜を${word.word}に煮込んだ。`, `${tag}：会場まで${word.word}を歩いて着いた。`, `${tag}：机の高さが${word.word}を話している。`], answer: 0, note: `Only the first sentence uses ${word.word} naturally in its abstract sense.` };
-  if (spec.itemType === 'Grammar form') return { ...common, prompt: '（　）に入れるのに最もよいものを一つ選びなさい。', tokens: [`${tag}：${pattern[1]}`], options: [pattern[2], ...pattern[3]], answer: 0, note: `${pattern[0]} ${pattern[4]}.` };
-  if (spec.itemType === 'Sentence assembly') return { ...common, prompt: '★に入るものはどれか。文全体を組み立てて選びなさい。', tokens: [`${tag}：${person}の発言は ＿＿＿ ＿★＿ ＿＿＿ ＿＿＿ と言える。`], options: ['見直す', 'これまでの前提を', 'に足る', 'ものだ'], answer: 0, note: 'Correct order: これまでの前提を／見直す／に足る／ものだ. The starred second slot is 見直す.' };
-  if (spec.itemType === 'Text grammar') return { ...common, prompt: '文章の（　）に入れるのに最もよいものを一つ選びなさい。', passage: [[`${tag}：新しい評価制度は、成果を明確に示せる点では有用だ。`], ['（　　）、数字に表れにくい支援や協力まで価値が低いと判断されるおそれがある。'], ['制度を運用する側には、測定できない貢献にも目を向ける姿勢が求められる。']], options: ['とはいえ', 'したがって', 'それどころか', 'ひいては'], answer: 0, note: 'とはいえ concedes the preceding merit before adding an important limitation.' };
+  if (spec.itemType === 'Kanji reading') return { ...common, prompt: '＿＿の言葉の読み方として最もよいものを一つ選びなさい。', tokens: [`${person}は${context}で従来の前提を`, { kanji: word.word, reading: word.reading, target: true }, 'する必要があると述べた。'], options: pick4(index, 'reading'), answer: 0, note: `${word.word} is read ${word.reading}; it means ${word.meaning}.` };
+  if (spec.itemType === 'Contextual vocabulary') return { ...common, prompt: '（　）に入れるのに最もよいものを一つ選びなさい。', tokens: [word.sentence.replace(word.word, '（　　）')], options: pick4(index, 'word'), answer: 0, note: `${word.word}（${word.reading}） means ${word.meaning}.` };
+  if (spec.itemType === 'Paraphrase') return { ...common, prompt: '＿＿の言葉と意味が最も近いものを一つ選びなさい。', tokens: [word.sentence], options: pick4(index, 'paraphrase'), answer: 0, note: `${word.word}（${word.reading}）means ${word.meaning}. In Japanese it can be restated as ${word.paraphrase}.` };
+  if (spec.itemType === 'Usage') return { ...common, prompt: `「${word.word}」の使い方として最もよいものを一つ選びなさい。`, ...usageChoices(words, index) };
+  if (spec.itemType === 'Grammar form') return { ...common, prompt: '（　）に入れるのに最もよいものを一つ選びなさい。', tokens: [pattern[1]], options: [pattern[2], ...pattern[3]], optionNotes: grammarChoiceNotes(pattern[0], pattern[2], pattern[3], pattern[4]), answer: 0, note: `${pattern[0]} ${pattern[4]}.` };
+  if (spec.itemType === 'Sentence assembly') { const item = assemblies[index % assemblies.length]; return { ...common, prompt: '★に入るものはどれか。文全体を組み立てて選びなさい。', tokens: [index >= assemblies.length ? `${context}では、${item.sentence}` : item.sentence], ...assemblyDetails(item) }; }
+  if (spec.itemType === 'Text grammar') return { ...common, prompt: '文章の（　）に入れるのに最もよいものを一つ選びなさい。', passage: [['新しい評価制度は、成果を明確に示せる点では有用だ。'], ['（　　）、数字に表れにくい支援や協力まで価値が低いと判断されるおそれがある。'], ['制度を運用する側には、測定できない貢献にも目を向ける姿勢が求められる。']], options: ['とはいえ', 'したがって', 'それどころか', 'ひいては'], answer: 0, note: 'とはいえ concedes the preceding merit before adding an important limitation.' };
   return null;
 }
 

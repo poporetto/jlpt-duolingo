@@ -244,21 +244,33 @@ async function main() {
     }
   }
 
+  // A spelling is not a reading. 大家 can be おおや or たいか, and 水 can be
+  // みず or すい. Bind every carrier to the *specific JMdict sense and kana*
+  // that supplied its example; never pool examples under the surface form.
+  const sentenceKey = (word, reading) => `${word}\u0000${reading}`;
   const sentences = new Map();
   for (const entry of words) {
     const surfaces = (entry.kanji ?? []).map((k) => k.text).filter((t) => vocab[t]);
     if (!surfaces.length) continue;
-    const found = [];
     for (const sense of entry.sense ?? []) {
-      for (const ex of sense.examples ?? []) {
-        for (const s of ex.sentences ?? []) if (s.lang === 'jpn') found.push(s.text);
-      }
-    }
-    for (const w of surfaces) {
-      for (const text of found) {
-        if (!text.includes(w)) continue;
-        if (!sentences.has(w)) sentences.set(w, []);
-        sentences.get(w).push(text);
+      for (const word of surfaces) {
+        const applicableKana = (entry.kana ?? []).filter((kana) => {
+          const appliesToWord = kana.appliesToKanji?.includes('*') || kana.appliesToKanji?.includes(word);
+          const appliesToSense = sense.appliesToKana?.includes('*') || sense.appliesToKana?.includes(kana.text);
+          return appliesToWord && appliesToSense && /^[ぁ-ん]+$/.test(kana.text);
+        });
+        // If a sense itself permits two readings, its examples cannot prove
+        // which pronunciation the sentence uses. Exclude it rather than guess.
+        const readings = [...new Set(applicableKana.map((kana) => kana.text))];
+        if (readings.length !== 1) continue;
+        const key = sentenceKey(word, readings[0]);
+        for (const ex of sense.examples ?? []) {
+          for (const sentence of ex.sentences ?? []) {
+            if (sentence.lang !== 'jpn' || !sentence.text.includes(word)) continue;
+            if (!sentences.has(key)) sentences.set(key, []);
+            sentences.get(key).push(sentence.text);
+          }
+        }
       }
     }
   }
@@ -269,8 +281,13 @@ async function main() {
   // sized for N5 and then applied to N1 as well, where it was the *only* filter
   // still doing anything — the kanji-difficulty clause is vacuous at the top two
   // levels, since nothing sits above them.
-  const maxCarrier = { 5: 42, 4: 50, 3: 64, 2: 80, 1: 96 };
+  const maxCarrier = { 5: 42, 4: 50, 3: 60, 2: 68, 1: 76 };
+  // Tatoeba is a general corpus, so it also contains things no JLPT paper would
+  // print: Latin words (half or full width), and transliterated proper nouns,
+  // which arrive as カタカナ・カタカナ. Both are jarring in a reading item.
+  const LATIN = /[A-Za-z\uFF21-\uFF3A\uFF41-\uFF5A]/;
   const carrierOk = (text, level) => text.length <= (maxCarrier[level] ?? 42) &&
+    !LATIN.test(text) && !text.includes('・') &&
     [...text].every((ch) => !KANJI_RE.test(ch) || !levelOf.has(ch) || levelOf.get(ch) >= level - 2);
 
   // Build every usable item once, keyed by the word.
@@ -280,7 +297,7 @@ async function main() {
     const { reading, level } = entries[0];
     const distractors = distractorsFor(word, reading, new Set(entries.map((e) => e.reading)), kanji, byKanji, vocab);
     if (distractors.length < 3) continue;
-    const carriers = (sentences.get(word) ?? []).sort((a, b) => a.length - b.length);
+    const carriers = (sentences.get(sentenceKey(word, reading)) ?? []).sort((a, b) => a.length - b.length);
     if (!carriers.length) continue;
     items.push({ word, reading, distractors, carriers, wordLevel: level });
   }

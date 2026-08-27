@@ -1,4 +1,5 @@
 import type { Level, Token } from './course-data';
+import { readingExpansion } from './reading-expansion.ts';
 
 /**
  * Hand-authored 読解 passages, one per item.
@@ -2252,7 +2253,13 @@ const n1: Passage[] = [
   },
 ];
 
-export const readingPassages: Record<Level, Passage[]> = { N5: n5, N4: n4, N3: n3, N2: n2, N1: n1 };
+export const readingPassages: Record<Level, Passage[]> = {
+  N5: [...n5, ...readingExpansion.N5],
+  N4: [...n4, ...readingExpansion.N4],
+  N3: [...n3, ...readingExpansion.N3],
+  N2: [...n2, ...readingExpansion.N2],
+  N1: [...n1, ...readingExpansion.N1],
+};
 export { short, medium, long, integrated, thesis, search };
 
 /**

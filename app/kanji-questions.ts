@@ -34,8 +34,12 @@ export function kanjiQuestions(level: Level): Question[] {
     prompt: '＿＿の言葉の読み方として最もよいものを選んでください。',
     tokens: frame(entry.sentence, entry.word, entry.word, entry.reading),
     options: [entry.reading, ...entry.distractors],
+    optionNotes: [
+      `Correct in this sentence: ${entry.word} is read ${entry.reading}. The carrier is tied to this exact JMdict reading and sense.`,
+      ...entry.distractors.map((reading) => `${reading} is a sound-based near miss—an alternate kanji reading, voicing, vowel, long-vowel or gemination slip—but it is not the reading of ${entry.word} in this context.`),
+    ],
     answer: 0,
-    note: `${entry.word} is read ${entry.reading}. The other three are readings this kanji pair could plausibly take — alternate 音読み, a rendaku shift, or a long-vowel slip — which is exactly how the real 漢字読み distractors are built.`,
+    note: `${entry.word} is read ${entry.reading} in this verified dictionary example. Read the whole carrier before choosing: homographs are matched by both spelling and sense, never by spelling alone.`,
   }));
 
   // 表記 is not an N1 item type — jlpt.jp lists it for N2–N5 only.
@@ -45,6 +49,10 @@ export function kanjiQuestions(level: Level): Question[] {
     // The reading is shown and the spelling is what's being chosen.
     tokens: frame(entry.sentence, entry.word, entry.reading, ''),
     options: [entry.word, ...entry.distractors],
+    optionNotes: [
+      `Correct: ${entry.reading} is written ${entry.word} in this sentence.`,
+      ...entry.distractors.map((spelling) => `${spelling} is a real homophone or a shared-kanji near miss, but its meaning does not fit this carrier sentence.`),
+    ],
     answer: 0,
     note: `${entry.reading} is written ${entry.word}. The distractors are real words that are either true homophones or share a kanji — 表記 tests whether you can match a spelling to a reading, not whether you recognise the word.`,
   }));
