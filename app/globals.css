@@ -7,9 +7,10 @@ body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--fo
 button,a { font:inherit; }
 button { cursor:pointer; }
 .ui-icon { position:relative; display:inline-block; flex:0 0 auto; width:20px; height:20px; color:currentColor; }
-.ui-icon-arrow-right,.ui-icon-arrow-left { width:21px; height:16px; }
-.ui-icon-arrow-right::before,.ui-icon-arrow-left::before { content:''; position:absolute; left:1px; top:6px; width:17px; height:4px; border-radius:99px; background:currentColor; }
-.ui-icon-arrow-right::after,.ui-icon-arrow-left::after { content:''; position:absolute; right:1px; top:2px; width:9px; height:9px; border-top:4px solid currentColor; border-right:4px solid currentColor; border-radius:2px; transform:rotate(45deg); }
+.ui-icon-arrow-right,.ui-icon-arrow-left { width:22px; height:16px; }
+/* Shaft centred on y=8; the head below is centred on the same line so the two meet. */
+.ui-icon-arrow-right::before,.ui-icon-arrow-left::before { content:''; position:absolute; left:0; top:6px; width:16px; height:4px; border-radius:99px; background:currentColor; }
+.ui-icon-arrow-right::after,.ui-icon-arrow-left::after { content:''; position:absolute; left:9px; top:3.5px; width:9px; height:9px; border-top:4px solid currentColor; border-right:4px solid currentColor; border-radius:2px; transform:rotate(45deg); }
 .ui-icon-arrow-left { transform:scaleX(-1); }
 .ui-icon-close::before,.ui-icon-close::after { content:''; position:absolute; left:1px; top:8px; width:19px; height:4px; border-radius:99px; background:currentColor; }
 .ui-icon-close::before { transform:rotate(45deg); }.ui-icon-close::after { transform:rotate(-45deg); }
@@ -150,7 +151,9 @@ button { cursor:pointer; }
 .feedback.success { background:#dcf3e7; color:#1d6b4c; }.feedback.retry { background:#ffebe7; color:#9d4032; }
 .option-explanations { list-style:none; display:grid; gap:7px; margin:12px 0 0; padding:11px 0 0; border-top:1px solid currentColor; }
 .option-explanations li { display:grid; grid-template-columns:23px 1fr; align-items:start; gap:8px; font-size:12px; line-height:1.5; opacity:.82; }
-.option-explanations li>span { width:21px; height:21px; display:grid; place-items:center; border-radius:7px; background:rgba(255,255,255,.62); font-weight:900; }
+/* Only the number badge — `li>span` also matched the explanation text and shrank
+   it into a 21px box, which is what made the rows overlap. */
+.option-explanations li>span:first-child { width:21px; height:21px; display:grid; place-items:center; border-radius:7px; background:rgba(255,255,255,.62); font-weight:900; }
 .option-explanations li.is-answer { opacity:1; font-weight:700; }
 .feedback details { margin-top:9px; border-top:1px solid currentColor; padding-top:8px; }.feedback summary { cursor:pointer; font-weight:800; font-size:12px; }.feedback details p { color:inherit; }
 .check-button { width:100%; margin-top:18px; border:0; border-radius:14px; background:var(--green); color:white; font-weight:800; padding:15px; box-shadow:0 5px 0 #174b39; }
@@ -299,3 +302,11 @@ footer a { color:var(--green); }
   .profile-levels li { grid-template-columns:30px 1fr; }
   .profile-levels small { grid-column:1 / -1; }
 }
+
+.furigana-text { display:inline; }
+
+/* Five skill cards need ~200px each to fit icon, label and percentage. Below
+   that the percentage collides with the label, so step the grid down. */
+@media (max-width:1060px) { .mastery-grid { grid-template-columns:repeat(3,1fr); } }
+@media (max-width:760px) { .mastery-grid { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:460px) { .mastery-grid { grid-template-columns:1fr; } }

@@ -164,7 +164,7 @@ for (const group of readingsByFirst.values()) group.sort(([a], [b]) => b.length 
  * objects; those win when present because they encode the intended contextual
  * reading and, importantly, whether a word is the item under test. */
 function FuriganaText({ text, furigana }: { text: string; furigana: boolean }) {
-  if (!furigana || !/\p{Script=Han}/u.test(text)) return <>{text}</>;
+  if (!furigana || !/\p{Script=Han}/u.test(text)) return <span className="furigana-text">{text}</span>;
 
   const pieces: ReactNode[] = [];
   let plain = '';
@@ -188,7 +188,10 @@ function FuriganaText({ text, furigana }: { text: string; furigana: boolean }) {
     offset += word.length;
   }
   flush();
-  return <>{pieces}</>;
+  // One element, not a fragment: a bare fragment's children each become their own
+  // grid item inside a grid parent, which stacked the option explanations on top
+  // of one another instead of laying them out in a column.
+  return <span className="furigana-text">{pieces}</span>;
 }
 
 function JapaneseText({ tokens, furigana }: { tokens?: Token[]; furigana: boolean }) {
