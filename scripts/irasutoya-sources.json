@@ -1,0 +1,26 @@
+{
+  "_note": "Provenance for the いらすとや illustrations in public/. Terms: https://www.irasutoya.com/p/terms.html — free for personal and commercial use, but a commercial design using 21 or more distinct images requires a paid licence (duplicates count as one). This app uses exactly 20; app/listening-questions.ts is the only place that assigns them, and the audit asserts the cap.",
+  "_license": "© みふねたかし / いらすとや. Copyright is retained by the author; these files are resized and converted to WebP, which does not transfer any rights.",
+  "images": {
+    "irasutoya-shopping": "https://www.irasutoya.com/2017/11/blog-post_639.html",
+    "irasutoya-meeting": "https://www.irasutoya.com/2018/04/blog-post_59.html",
+    "irasutoya-station-staff": "https://www.irasutoya.com/2014/06/blog-post_9691.html",
+    "irasutoya-weather": "https://www.irasutoya.com/2015/01/blog-post_8.html",
+    "irasutoya-classroom": "https://www.irasutoya.com/2014/01/blog-post_5130.html",
+    "irasutoya-train": "https://www.irasutoya.com/2017/07/blog-post_55.html",
+    "irasutoya-friends": "https://www.irasutoya.com/2018/07/blog-post_691.html",
+    "irasutoya-restaurant": "https://www.irasutoya.com/2019/08/blog-post_661.html",
+    "irasutoya-park": "https://www.irasutoya.com/2013/05/blog-post_2602.html",
+    "irasutoya-directions": "https://www.irasutoya.com/2013/12/blog-post_2599.html",
+    "irasutoya-luggage": "https://www.irasutoya.com/2018/01/blog-post_45.html",
+    "irasutoya-phone": "https://www.irasutoya.com/2017/09/blog-post_18.html",
+    "irasutoya-congrats": "https://www.irasutoya.com/2013/11/blog-post_27.html",
+    "irasutoya-moving": "https://www.irasutoya.com/2018/08/blog-post_50.html",
+    "irasutoya-copier": "https://www.irasutoya.com/2014/04/blog-post_9226.html",
+    "irasutoya-farm": "https://www.irasutoya.com/2013/04/blog-post_702.html",
+    "irasutoya-airport": "https://www.irasutoya.com/2013/06/blog-post_4015.html",
+    "irasutoya-library": "https://www.irasutoya.com/2014/03/blog-post_4453.html",
+    "irasutoya-hospital": "https://www.irasutoya.com/2013/08/blog-post_1712.html",
+    "irasutoya-post-office": "https://www.irasutoya.com/2015/03/blog-post_337.html"
+  }
+}

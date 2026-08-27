@@ -2,8 +2,10 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { levelDetails, levels, questionBank, type Level, type Question, type QuestionType, type Token } from './course-data';
 import { playNarration, playSfx, rankJapaneseVoices, setSfxEnabled, stopNarration, unlockAudio } from './audio';
+import furiganaReadings from './furigana-map.json' with { type: 'json' };
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 const asset = (path: string) => `${BASE_PATH}${path}`;
@@ -38,6 +40,16 @@ type Streak = { last: string; count: number };
 type Missed = Partial<Record<Level, number[]>>;
 type MasteryScores = Partial<Record<Level, Record<string, number>>>;
 type MockResults = Partial<Record<Level, Record<string, { correct: number; total: number; completedAt: string }>>>;
+
+type UiIconName = 'arrow-right' | 'arrow-left' | 'close' | 'heart' | 'replay' | 'play' | 'pause';
+
+function UiIcon({ name }: { name: UiIconName }) {
+  return <span className={`ui-icon ui-icon-${name}`} aria-hidden="true" />;
+}
+/** How many times each question has been served in daily mode, so a run can
+ *  prefer what the learner has seen least. */
+type DailySeen = Partial<Record<Level, Record<string, number>>>;
+type DailyLog = Partial<Record<Level, { day: string; runs: number }>>;
 type CurriculumStage = { id: string; type: QuestionType; title: string; jp: string; itemType: string; description: string; levels: Level[] };
 
 const allLevels: Level[] = ['N1', 'N2', 'N3', 'N4', 'N5'];
@@ -66,6 +78,30 @@ const curriculum: CurriculumStage[] = [
 ];
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+/** A unit needs at least this many questions to be playable. The real exam has
+ *  only two to four 長文 / 統合理解 / 主張理解 items, so a small unit is authentic —
+ *  it is not a bank still being filled. */
+const MIN_UNIT_QUESTIONS = 4;
+
+/** Daily mode: one mixed stage drawing on every section at once. */
+const DAILY_LENGTH = 10;
+const DAILY_SECTIONS: QuestionType[] = ['KANJI', 'VOCABULARY', 'GRAMMAR', 'READING', 'LISTENING'];
+/** Slots per run reserved for items already met but not yet mastered. The rest of
+ *  the stage is fresh, so "the questions always change" holds while the handful
+ *  you still owe keeps coming back. */
+const DAILY_REVIEW_SLOTS = 3;
+
+/**
+ * Everything this app keeps in localStorage. Listed once so the profile panel can
+ * export and restore progress without a key silently going missing when a new
+ * feature adds one.
+ */
+const STORAGE_KEYS = [
+  'kuma-level', 'kuma-xp', 'kuma-streak', 'kuma-missed', 'kuma-settings',
+  'kuma-mastery-scores', 'kuma-mock-results', 'kuma-daily-seen', 'kuma-daily-log',
+] as const;
+const BACKUP_FORMAT = 'kuma-no-ryoku/progress@1';
 
 const lessonChunks = (indices: number[], size = 8) => {
   if (!indices.length) return [[]];
@@ -115,12 +151,52 @@ const permutation = (length: number, seed: number) => {
   return order;
 };
 
+const readingsByFirst = new Map<string, [string, string][]>();
+for (const [word, reading] of Object.entries(furiganaReadings)) {
+  const first = [...word][0];
+  const group = readingsByFirst.get(first) ?? [];
+  group.push([word, reading]);
+  readingsByFirst.set(first, group);
+}
+for (const group of readingsByFirst.values()) group.sort(([a], [b]) => b.length - a.length);
+
+/** Add ruby to ordinary Japanese strings. The bank also contains explicit Token
+ * objects; those win when present because they encode the intended contextual
+ * reading and, importantly, whether a word is the item under test. */
+function FuriganaText({ text, furigana }: { text: string; furigana: boolean }) {
+  if (!furigana || !/\p{Script=Han}/u.test(text)) return <>{text}</>;
+
+  const pieces: ReactNode[] = [];
+  let plain = '';
+  let offset = 0;
+  const flush = () => {
+    if (!plain) return;
+    pieces.push(<span key={`plain-${offset}-${pieces.length}`}>{plain}</span>);
+    plain = '';
+  };
+
+  while (offset < text.length) {
+    const match = (readingsByFirst.get(text[offset]) ?? []).find(([word]) => text.startsWith(word, offset));
+    if (!match) {
+      plain += text[offset];
+      offset += 1;
+      continue;
+    }
+    flush();
+    const [word, reading] = match;
+    pieces.push(<ruby key={`ruby-${offset}`}>{word}<rt>{reading}</rt></ruby>);
+    offset += word.length;
+  }
+  flush();
+  return <>{pieces}</>;
+}
+
 function JapaneseText({ tokens, furigana }: { tokens?: Token[]; furigana: boolean }) {
   if (!tokens) return null;
   return (
     <span className="sentence-text">
       {tokens.map((token, index) => {
-        if (typeof token === 'string') return <span key={index}>{token}</span>;
+        if (typeof token === 'string') return <span key={index}><FuriganaText text={token} furigana={furigana} /></span>;
         // The item under test is underlined and never furigana'd — otherwise a
         // kanji-reading question prints its own answer above the word.
         if (token.target) return <u key={index} className="target-word">{token.kanji}</u>;
@@ -137,11 +213,15 @@ export default function Home() {
   const [missed, setMissed] = useState<Missed>({});
   const [masteryScores, setMasteryScores] = useState<MasteryScores>({});
   const [mockResults, setMockResults] = useState<MockResults>({});
-  const [lessonKind, setLessonKind] = useState<'practice' | 'mock'>('practice');
+  const [lessonKind, setLessonKind] = useState<'practice' | 'mock' | 'daily'>('practice');
+  const [dailySeen, setDailySeen] = useState<DailySeen>({});
+  const [dailyLog, setDailyLog] = useState<DailyLog>({});
   const [activeMock, setActiveMock] = useState('');
   const [pathwayOpen, setPathwayOpen] = useState(false);
   const [lessonOpen, setLessonOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [restoreNote, setRestoreNote] = useState('');
   const [order, setOrder] = useState<number[]>([]);
   const [seed, setSeed] = useState(1);
   const [step, setStep] = useState(0);
@@ -172,7 +252,7 @@ export default function Home() {
   const xp = xpByLevel[level];
   const levelMissed = useMemo(() => missed[level] ?? [], [missed, level]);
   const japaneseVoices = useMemo(() => rankJapaneseVoices(voices), [voices]);
-  const outOfHearts = lessonKind === 'practice' && !unlimitedHearts && hearts === 0;
+  const outOfHearts = lessonKind !== 'mock' && !unlimitedHearts && hearts === 0;
 
   /* Shuffle this question's options, and map the authored answer onto its new slot. */
   const view = useMemo(() => {
@@ -190,6 +270,8 @@ export default function Home() {
       setMissed(read<Missed>('kuma-missed', {}));
       setMasteryScores(read<MasteryScores>('kuma-mastery-scores', {}));
       setMockResults(read<MockResults>('kuma-mock-results', {}));
+      setDailySeen(read<DailySeen>('kuma-daily-seen', {}));
+      setDailyLog(read<DailyLog>('kuma-daily-log', {}));
       setFurigana(settings.furigana);
       setUnlimitedHearts(settings.unlimitedHearts);
       setVoiceUri(settings.voiceUri);
@@ -220,7 +302,7 @@ export default function Home() {
 
   /* Both overlays are real modals: Escape closes, Tab stays inside, focus returns. */
   useEffect(() => {
-    const open = lessonOpen || settingsOpen;
+    const open = lessonOpen || settingsOpen || profileOpen;
     if (!open) return;
     returnFocusRef.current = document.activeElement as HTMLElement;
     dialogRef.current?.focus();
@@ -228,7 +310,9 @@ export default function Home() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        if (settingsOpen) setSettingsOpen(false); else closeLesson();
+        if (profileOpen) setProfileOpen(false);
+        else if (settingsOpen) setSettingsOpen(false);
+        else closeLesson();
         return;
       }
       if (event.key !== 'Tab') return;
@@ -245,7 +329,7 @@ export default function Home() {
       document.removeEventListener('keydown', onKeyDown);
       returnFocusRef.current?.focus();
     };
-  }, [lessonOpen, settingsOpen, closeLesson]);
+  }, [lessonOpen, settingsOpen, profileOpen, closeLesson]);
 
   const chooseLevel = (next: Level) => {
     playSfx('select');
@@ -293,11 +377,83 @@ export default function Home() {
     setCorrectCount(0); setWrongThisLesson([]); setHearts(5); setHasPlayed(false);
   };
 
+  /**
+   * Daily mode — a ten-question mixed stage, two from each section.
+   *
+   * Ranking is mastery first, then how often the item has appeared before. That
+   * gives both halves of what daily mode promises: an item you have not finished
+   * keeps coming back until it is mastered, while everything else rotates so two
+   * runs on the same day are not the same ten questions. Because mastered items
+   * sink to the bottom, running daily repeatedly walks the whole bank.
+   */
+  const openDaily = () => {
+    const seen = dailySeen[level] ?? {};
+    const scores = masteryScores[level] ?? {};
+    const random = mulberry32(Date.now() % 100000);
+    const rank = (index: number) => ({
+      index,
+      score: scores[String(index)] ?? 0,
+      times: seen[String(index)] ?? 0,
+      jitter: random(),
+    });
+    const byPriority = (a: ReturnType<typeof rank>, b: ReturnType<typeof rank>) =>
+      a.score - b.score || a.times - b.times || a.jitter - b.jitter;
+
+    const picked: number[] = [];
+    const taken = new Set<number>();
+
+    // 1. Review: met before, not finished. Longest-unseen first, so this is
+    //    spaced repetition rather than the same three items every run.
+    const due = bank.map((_, index) => index)
+      .filter((index) => (seen[String(index)] ?? 0) > 0 && (scores[String(index)] ?? 0) < 2)
+      .map(rank)
+      .sort((a, b) => a.score - b.score || b.times - a.times || a.jitter - b.jitter)
+      .slice(0, DAILY_REVIEW_SLOTS);
+    due.forEach((entry) => { picked.push(entry.index); taken.add(entry.index); });
+
+    // 2. One slot per section that still has unfinished items, so every run
+    //    really does span all five modes.
+    for (const section of DAILY_SECTIONS) {
+      if (picked.length >= DAILY_LENGTH) break;
+      const pool = bank.map((question, index) => ({ question, index }))
+        .filter(({ question, index }) => question.type === section && (scores[String(index)] ?? 0) < 2 && !taken.has(index))
+        .map(({ index }) => rank(index))
+        .sort(byPriority);
+      if (!pool.length) continue;
+      picked.push(pool[0].index);
+      taken.add(pool[0].index);
+    }
+
+    // 3. Fill from whatever is furthest from mastery anywhere in the bank.
+    //    Without this the small sections would recycle every few runs while 漢字
+    //    crawled — they differ in size by more than an order of magnitude.
+    const filler = bank.map((_, index) => index)
+      .filter((index) => !taken.has(index))
+      .map(rank)
+      .sort(byPriority)
+      .slice(0, Math.max(0, DAILY_LENGTH - picked.length));
+    picked.push(...filler.map((entry) => entry.index));
+
+    if (!picked.length) return;
+
+    unlockAudio();
+    playSfx('open');
+    setLessonKind('daily');
+    setActiveMock('');
+    // Interleave so the sections alternate rather than arriving in blocks.
+    setOrder(permutation(picked.length, Date.now() % 100000).map((k) => picked[k]));
+    setSeed((value) => value + 1);
+    setStep(0); setSelected(null); setChecked(false); setComplete(false);
+    setCorrectCount(0); setWrongThisLesson([]); setHearts(5); setHasPlayed(false);
+    setLessonOpen(true);
+  };
+
   const openMock = (form: number) => {
-    const offset = (form - 1) * 3;
+    const questionsPerFamily = 5;
+    const offset = (form - 1) * questionsPerFamily;
     const indices = levelCurriculum.flatMap((family) => {
       const familyIndices = bank.map((question, index) => ({ question, index })).filter(({ question }) => question.itemType === family.itemType).map(({ index }) => index);
-      return Array.from({ length: Math.min(3, familyIndices.length) }, (_, part) => familyIndices[(offset + part) % familyIndices.length]);
+      return Array.from({ length: Math.min(questionsPerFamily, familyIndices.length) }, (_, part) => familyIndices[(offset + part) % familyIndices.length]);
     });
     if (!indices.length) return;
     unlockAudio();
@@ -309,6 +465,49 @@ export default function Home() {
     setStep(0); setSelected(null); setChecked(false); setComplete(false);
     setCorrectCount(0); setWrongThisLesson([]); setHearts(5); setHasPlayed(false);
     setLessonOpen(true);
+  };
+
+  /** Download every stored key as one JSON file. Progress lives only in this
+   *  browser, so this is the only way to move it to another device or keep it
+   *  through a cache clear. */
+  const saveProgress = () => {
+    playSfx('select');
+    const data: Record<string, unknown> = {};
+    for (const key of STORAGE_KEYS) {
+      const raw = window.localStorage.getItem(key);
+      if (raw !== null) data[key] = raw;
+    }
+    const payload = { format: BACKUP_FORMAT, savedAt: new Date().toISOString(), data };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `kuma-progress-${today()}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setRestoreNote('Saved. Keep the file somewhere you can find it again.');
+  };
+
+  /** Restore from a file written by saveProgress. Only keys this app owns are
+   *  written, and the page reloads afterwards so every piece of state is read
+   *  back from storage rather than half-updated in memory. */
+  const loadProgress = async (file: File) => {
+    try {
+      const parsed = JSON.parse(await file.text());
+      if (parsed?.format !== BACKUP_FORMAT || typeof parsed.data !== 'object' || !parsed.data) {
+        setRestoreNote('That file isn’t a Kuma progress save.');
+        return;
+      }
+      const restored = STORAGE_KEYS.filter((key) => typeof parsed.data[key] === 'string');
+      if (!restored.length) {
+        setRestoreNote('That save file had nothing to restore.');
+        return;
+      }
+      for (const key of restored) window.localStorage.setItem(key, parsed.data[key]);
+      setRestoreNote(`Restored ${restored.length} of ${STORAGE_KEYS.length} records. Reloading…`);
+      window.setTimeout(() => window.location.reload(), 700);
+    } catch {
+      setRestoreNote('Couldn’t read that file — is it the right JSON?');
+    }
   };
 
   const playListening = () => {
@@ -359,6 +558,20 @@ export default function Home() {
     const nextScores: MasteryScores = { ...masteryScores, [level]: levelScores };
     setMasteryScores(nextScores);
     window.localStorage.setItem('kuma-mastery-scores', JSON.stringify(nextScores));
+
+    if (lessonKind === 'daily') {
+      const counts = { ...(dailySeen[level] ?? {}) };
+      order.forEach((index) => { counts[String(index)] = (counts[String(index)] ?? 0) + 1; });
+      const nextSeen: DailySeen = { ...dailySeen, [level]: counts };
+      setDailySeen(nextSeen);
+      window.localStorage.setItem('kuma-daily-seen', JSON.stringify(nextSeen));
+
+      const day = today();
+      const previous = dailyLog[level];
+      const nextLog: DailyLog = { ...dailyLog, [level]: { day, runs: previous?.day === day ? previous.runs + 1 : 1 } };
+      setDailyLog(nextLog);
+      window.localStorage.setItem('kuma-daily-log', JSON.stringify(nextLog));
+    }
 
     const day = today();
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
@@ -424,8 +637,15 @@ export default function Home() {
     const chunks = lessonChunks(indices);
     return chunks.map((questionIndices, part) => ({ ...stage, questionIndices, part, parts: chunks.length, pathId: `${stage.id}-${part + 1}` }));
   });
-  const levelCompletedStages = levelPathStages.filter((stage) => stage.questionIndices.length >= 8 && stage.questionIndices.every((index) => levelMastered.includes(index))).map((stage) => stage.pathId);
+  const levelCompletedStages = levelPathStages.filter((stage) => stage.questionIndices.length >= MIN_UNIT_QUESTIONS && stage.questionIndices.every((index) => levelMastered.includes(index))).map((stage) => stage.pathId);
   const overallProgress = levelPathStages.length ? Math.round((levelCompletedStages.length / levelPathStages.length) * 100) : 0;
+  const masteredCount = bank.reduce((n, _, index) => n + ((masteryScores[level]?.[String(index)] ?? 0) >= 2 ? 1 : 0), 0);
+  const savedLevels = levels.map((item) => {
+    const size = questionBank[item].length;
+    const done = Object.values(masteryScores[item] ?? {}).filter((score) => score >= 2).length;
+    return { level: item, done, size, percent: size ? Math.round((done / size) * 100) : 0, xp: xpByLevel[item] ?? 0 };
+  });
+  const dailyRunsToday = dailyLog[level]?.day === today() ? dailyLog[level]!.runs : 0;
   const curriculumComplete = bank.length > 0 && bank.every((_, index) => (masteryScores[level]?.[String(index)] ?? 0) >= 2);
   const skillProgress = skills.map((skill) => {
     const relevantStages = levelPathStages.filter((stage) => stage.type === skill.type);
@@ -439,12 +659,14 @@ export default function Home() {
   return (
     <main className="app-shell" style={{ '--level-accent': details.accent } as React.CSSProperties}>
       <header className="topbar">
-        <a className="brand" href="#top" onClick={() => setPathwayOpen(false)} aria-label="Kuma no Ryoku welcome screen"><span className="brand-mark"><Image src={asset('/brand-bear-head.webp')} alt="" width={192} height={192} priority /></span><span className="brand-copy"><b>Kuma no Ryoku</b><small>熊の力</small></span></a>
+        <a className="brand" href="#top" onClick={() => setPathwayOpen(false)} aria-label="Kuma no Ryoku welcome screen">
+          <Image className="brand-logo" src={asset('/logo-kuma-cute-brush.png')} alt="Kuma no Ryoku — 熊の力" width={2153} height={556} priority />
+        </a>
         <div className="top-stats" aria-label="Daily progress">
           <span title={streak.count ? `${streak.count}-day streak` : 'Finish a lesson to start a streak'}><Image className="top-stat-icon" src={asset('/ui-streak.webp')} alt="" width={160} height={160} /><b>{streak.count}</b></span>
           <span title="Total XP"><Image className="top-stat-icon" src={asset('/ui-points.webp')} alt="" width={160} height={160} /><b>{totalXp}</b></span>
           <button className="settings-button" onClick={() => { unlockAudio(); playSfx('select'); setSettingsOpen(true); }} aria-label="Open learning settings"><Image src={asset('/ui-settings.webp')} alt="" width={160} height={160} /></button>
-          <button className="avatar" aria-label="Open profile"><Image src={asset('/ui-profile.webp')} alt="" width={160} height={160} /></button>
+          <button className="avatar" onClick={() => { unlockAudio(); playSfx('select'); setRestoreNote(''); setProfileOpen(true); }} aria-label="Open profile and saved progress"><Image src={asset('/ui-profile.webp')} alt="" width={160} height={160} /></button>
         </div>
       </header>
 
@@ -459,7 +681,7 @@ export default function Home() {
           <h1>{details.title.split(' ')[0]}<br /><em>{details.title.split(' ').slice(1).join(' ')}</em></h1>
           <p>{details.subtitle}. Build confidence with exam-shaped practice across grammar, kanji, vocabulary, reading and listening.</p>
           <p className="brand-pun"><b>熊の力</b>で、<b>能力試験</b>へ。<span>Kuma’s power for your Japanese proficiency journey.</span></p>
-          <button className="primary-button" onClick={showPathway}>View {level} pathway <span>→</span></button>
+          <button className="primary-button" onClick={showPathway}>View {level} pathway <UiIcon name="arrow-right" /></button>
           <div className="today-line"><span>Today</span><div><i style={{ width: `${Math.min(100, (xp / 125) * 100)}%` }} /></div><b>{xp} XP</b></div>
         </div>
 
@@ -478,7 +700,7 @@ export default function Home() {
       </section>
       </> : <section id="top" className="pathway-home">
         <div className="pathway-heading">
-          <button className="pathway-back" onClick={() => setPathwayOpen(false)}>← Welcome</button>
+          <button className="pathway-back" onClick={() => setPathwayOpen(false)}><UiIcon name="arrow-left" />Welcome</button>
           <div className="pathway-intro">
             <div>
               <span className="eyebrow">YOUR {level} LEARNING PATH</span>
@@ -491,6 +713,22 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        <section className="daily-card" aria-label={`${level} daily mix`}>
+          <span className="daily-mark" aria-hidden="true">日</span>
+          <div className="daily-copy">
+            <small>DAILY MIX • {DAILY_LENGTH} QUESTIONS</small>
+            <h2>Today&rsquo;s ten</h2>
+            <p>Every section in one stage, weighted towards whatever you are furthest from mastering. Anything unfinished comes back until it sticks, so the daily mix reaches the same mastery as the pathway by a different route.</p>
+            <div className="daily-meter" role="img" aria-label={`${masteredCount} of ${bank.length} questions mastered`}>
+              <i style={{ width: `${bank.length ? (masteredCount / bank.length) * 100 : 0}%` }} />
+            </div>
+            <small className="daily-stat">{masteredCount}/{bank.length} mastered{dailyRunsToday ? ` • ${dailyRunsToday} run${dailyRunsToday > 1 ? 's' : ''} today` : ''}</small>
+          </div>
+          <button className="daily-start" onClick={openDaily} disabled={bank.length < DAILY_LENGTH}>
+            {dailyRunsToday ? 'Another round' : 'Start daily mix'}<UiIcon name="arrow-right" />
+          </button>
+        </section>
 
         <div className="mastery-grid" aria-label={`${level} skill progress`}>
           {skillProgress.map((skill) => {
@@ -513,7 +751,7 @@ export default function Home() {
                 <span className="pathway-step">{unitDone ? '✓' : String(index + 1).padStart(2, '0')}</span>
                 <div className="pathway-unit-icon"><Image src={asset(unitIcon.src)} alt="" width={160} height={160} /></div>
                 <div><small>{unit.jp} • {unit.type === 'KANJI' ? 'VOCABULARY' : unit.type} • {unitQuestions.length} QUESTIONS</small><h2>{unit.title}{unit.parts > 1 ? ` ${unit.part + 1}` : ''}</h2><p>{unit.description}</p></div>
-                <button disabled={unitQuestions.length < 8} aria-label={`Start ${unit.title}`} onClick={() => openLesson([unit.type], [unit.itemType], unit.questionIndices)}>{unitQuestions.length < 8 ? 'Building bank' : unitDone ? 'Practise' : 'Learn'}{unitQuestions.length >= 8 && <span>→</span>}</button>
+                <button disabled={unitQuestions.length < MIN_UNIT_QUESTIONS} aria-label={`Start ${unit.title}`} onClick={() => openLesson([unit.type], [unit.itemType], unit.questionIndices)}>{unitQuestions.length < MIN_UNIT_QUESTIONS ? 'Building bank' : unitDone ? 'Practise' : 'Learn'}{unitQuestions.length >= MIN_UNIT_QUESTIONS && <UiIcon name="arrow-right" />}</button>
               </article>;
             })}
             <section className={`mock-gate ${curriculumComplete ? 'unlocked' : ''}`} aria-label={`${level} full mock tests`}>
@@ -528,9 +766,56 @@ export default function Home() {
         </div>
       </section>}
 
+      {profileOpen && <div className="lesson-overlay" role="dialog" aria-modal="true" aria-label="Profile and saved progress">
+        <div className="settings-panel profile-panel" ref={dialogRef} tabIndex={-1}>
+          <header>
+            <div><span className="eyebrow">YOUR PROGRESS</span><h2>Profile</h2></div>
+            <button className="close-button" onClick={() => setProfileOpen(false)} aria-label="Close profile"><UiIcon name="close" /></button>
+          </header>
+
+          <p className="profile-lede">
+            Everything is stored in this browser only — nothing is uploaded, and no account is needed.
+            Clearing site data will erase it, so save a file before you do.
+          </p>
+
+          <div className="profile-figures">
+            <div><small>TOTAL XP</small><b>{totalXp}</b></div>
+            <div><small>STREAK</small><b>{streak.count} day{streak.count === 1 ? '' : 's'}</b></div>
+            <div><small>DAILY MIX TODAY</small><b>{dailyRunsToday}</b></div>
+          </div>
+
+          <ul className="profile-levels">
+            {savedLevels.map((entry) => (
+              <li key={entry.level} className={entry.level === level ? 'current' : ''}>
+                <b>{entry.level}</b>
+                <div className="mastery-bar"><i style={{ width: `${entry.percent}%` }} /></div>
+                <small>{entry.done}/{entry.size} mastered · {entry.xp} XP</small>
+              </li>
+            ))}
+          </ul>
+
+          <div className="profile-actions">
+            <button className="save-settings" onClick={saveProgress}>Save progress to a file</button>
+            <label className="load-progress">
+              Load progress from a file
+              <input
+                type="file"
+                accept="application/json,.json"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = '';
+                  if (file) void loadProgress(file);
+                }}
+              />
+            </label>
+          </div>
+          {restoreNote && <p className="profile-note" role="status">{restoreNote}</p>}
+        </div>
+      </div>}
+
       {settingsOpen && <div className="lesson-overlay" role="dialog" aria-modal="true" aria-label="Learning settings">
         <div className="settings-panel" ref={dialogRef} tabIndex={-1}>
-          <header><div><span className="eyebrow">LEARNING PREFERENCES</span><h2>Settings</h2></div><button className="close-button" onClick={() => setSettingsOpen(false)} aria-label="Close settings">×</button></header>
+          <header><div><span className="eyebrow">LEARNING PREFERENCES</span><h2>Settings</h2></div><button className="close-button" onClick={() => setSettingsOpen(false)} aria-label="Close settings"><UiIcon name="close" /></button></header>
           <div className="setting-row"><div className="setting-symbol"><Image src={asset('/settings-furigana.webp')} alt="" width={160} height={160} /></div><div><b>Show furigana</b><p>Display small readings above kanji during lessons. Words being tested stay unmarked.</p><span className="ruby-demo"><ruby>日本語<rt>{furigana ? 'にほんご' : ''}</rt></ruby></span></div><button className={`toggle ${furigana ? 'on' : ''}`} onClick={() => { setFurigana(!furigana); playSfx('select'); }} role="switch" aria-checked={furigana} aria-label="Show furigana"><i /></button></div>
           <div className="setting-row"><div className="setting-symbol heart-symbol"><Image src={asset('/settings-hearts.webp')} alt="" width={160} height={160} /></div><div><b>Unlimited hearts</b><p>Practice freely without losing hearts after mistakes.</p></div><button className={`toggle ${unlimitedHearts ? 'on' : ''}`} onClick={() => { setUnlimitedHearts(!unlimitedHearts); playSfx('select'); }} role="switch" aria-checked={unlimitedHearts} aria-label="Unlimited hearts"><i /></button></div>
           <div className="setting-row"><div className="setting-symbol sound-symbol"><Image src={asset('/settings-sound.webp')} alt="" width={160} height={160} /></div><div><b>Sound effects</b><p>Koto, wood block and bell tones as you answer. Never plays over listening audio.</p></div><button className={`toggle ${sound ? 'on' : ''}`} onClick={() => { const next = !sound; setSound(next); setSfxEnabled(next); if (next) { unlockAudio(); playSfx('correct'); } }} role="switch" aria-checked={sound} aria-label="Sound effects"><i /></button></div>
@@ -542,45 +827,48 @@ export default function Home() {
       {lessonOpen && current && view && <div className="lesson-overlay" role="dialog" aria-modal="true" aria-label={`${level} practice lesson`}>
         <div className="lesson-window" ref={dialogRef} tabIndex={-1}>
           <header className="lesson-top">
-            <button className="close-button" onClick={closeLesson} aria-label="Close lesson">×</button>
+            <button className="close-button" onClick={closeLesson} aria-label="Close lesson"><UiIcon name="close" /></button>
             <div className="lesson-progress" aria-label={`Question ${step + 1} of ${order.length}`}><i style={{ width: `${complete ? 100 : ((step + 1) / order.length) * 100}%` }} /></div>
-            <span className="heart" aria-label={unlimitedHearts ? 'Unlimited hearts' : `${hearts} hearts left`}>♥ <b>{unlimitedHearts ? '∞' : hearts}</b></span>
+            <span className="heart" aria-label={unlimitedHearts ? 'Unlimited hearts' : `${hearts} hearts left`}><UiIcon name="heart" /><b>{unlimitedHearts ? '∞' : hearts}</b></span>
           </header>
 
           {complete ? <div className="complete-card">
             <div className="celebration">祝</div>
-            <span className="eyebrow">{level} {lessonKind === 'mock' ? 'MOCK TEST COMPLETE' : 'LESSON COMPLETE'}</span>
-            <h2>{lessonKind === 'mock' ? 'Test complete!' : 'That was bear-y good!'}</h2>
-            <p>{lessonKind === 'mock' ? 'Your test result is saved separately, so it does not change curriculum mastery.' : 'You practised the same 大問 families the JLPT uses: 文字・語彙, 文法, 読解 and 聴解.'}</p>
+            <span className="eyebrow">{level} {lessonKind === 'mock' ? 'MOCK TEST COMPLETE' : lessonKind === 'daily' ? 'DAILY MIX COMPLETE' : 'LESSON COMPLETE'}</span>
+            <h2>{lessonKind === 'mock' ? 'Test complete!' : lessonKind === 'daily' ? 'Daily mix done!' : 'That was bear-y good!'}</h2>
+            <p>{lessonKind === 'mock' ? 'Your test result is saved separately, so it does not change curriculum mastery.' : lessonKind === 'daily' ? 'This counts towards the same mastery meter as the pathway. Run it again for a fresh ten.' : 'You practised the same 大問 families the JLPT uses: 文字・語彙, 文法, 読解 and 聴解.'}</p>
             <div className="reward-row">
               <div><small>XP EARNED</small><b>+{correctCount * 5} XP</b></div>
               <div><small>SCORE</small><b>{correctCount} / {order.length}</b></div>
             </div>
-            {lessonKind === 'practice' && wrongThisLesson.length > 0 && <p className="review-note">Saved for next time: {wrongThisLesson.map((index) => bank[index].jpItemType).join('、')}</p>}
-            <button className="primary-button" onClick={() => setLessonOpen(false)}>Back to my path <span>→</span></button>
+            {lessonKind !== 'mock' && wrongThisLesson.length > 0 && <p className="review-note">Saved for next time: {wrongThisLesson.map((index) => bank[index].jpItemType).join('、')}</p>}
+            <button className="primary-button" onClick={() => setLessonOpen(false)}>Back to my path <UiIcon name="arrow-right" /></button>
           </div> : outOfHearts && checked ? <div className="complete-card">
             <div className="celebration hearts-gone">再</div>
             <span className="eyebrow">OUT OF HEARTS</span>
             <h2>Let’s go again</h2>
             <p>You got {correctCount} of {step + 1} so far. Turn on unlimited hearts in settings if you’d rather practise without the limit.</p>
-            <button className="primary-button" onClick={retryLesson}>Retry lesson <span>↺</span></button>
+            <button className="primary-button" onClick={retryLesson}>Retry lesson <UiIcon name="replay" /></button>
             <button className="ghost-button" onClick={closeLesson}>Back to my path</button>
           </div> : <div className="question-wrap">
             <div className="question-meta">
               <span className={`question-mode-icon mode-${current.type.toLowerCase()}`}><Image src={asset(questionModeIcons[current.type].src)} alt={questionModeIcons[current.type].alt} width={44} height={44} /></span>
-              <div className="question-label"><b>{current.itemType}</b><small lang="ja">{current.jpItemType}</small></div>
+              <div className="question-label"><b>{current.itemType}</b><small lang="ja"><FuriganaText text={current.jpItemType} furigana={furigana} /></small></div>
               <small className="question-count">{level} • {step + 1}/{order.length}</small>
             </div>
-            {veiled ? <h2 className="prompt-veiled">まず 話を 聞いて ください。<small>Listen first — in 概要理解 the question comes after the audio.</small></h2> : <h2>{current.prompt}</h2>}
+            {veiled ? <h2 className="prompt-veiled"><FuriganaText text="まず 話を 聞いて ください。" furigana={furigana} /><small>Listen first — in <FuriganaText text="概要理解" furigana={furigana} /> the question comes after the audio.</small></h2> : <h2 lang="ja"><FuriganaText text={current.prompt} furigana={furigana} /></h2>}
 
             {current.type === 'LISTENING' && <div className="listening-scene">
               {current.image && <Image src={asset(current.image)} alt={current.imageAlt ?? ''} width={180} height={180} />}
               <button className={`listen-button ${playing ? 'playing' : ''}`} onClick={playListening} aria-label="Play Japanese listening prompt">
-                <span>{playing ? '❚❚' : '▶'}</span>
+                <span>{playing ? <UiIcon name="pause" /> : <UiIcon name="play" />}</span>
                 <div><b>{playing ? 'Playing…' : 'Play audio'}</b><small>{level === 'N1' || level === 'N2' ? 'Natural exam pace' : 'Clear learner pace'} • replay anytime</small></div>
               </button>
             </div>}
 
+            {current.type !== 'LISTENING' && current.image && <figure className="scene-figure">
+              <Image src={asset(current.image)} alt={current.imageAlt ?? ''} width={120} height={120} />
+            </figure>}
             {current.passage && <div className="passage-card" lang="ja">{current.passage.map((line, index) => <p key={index}><JapaneseText tokens={line} furigana={furigana} /></p>)}</div>}
             {current.tokens && <div className="sentence-card" lang="ja"><JapaneseText tokens={current.tokens} furigana={furigana} /></div>}
 
@@ -591,7 +879,7 @@ export default function Home() {
                   : selected === index ? 'selected' : '';
                 return (
                   <button key={index} className={state} aria-pressed={selected === index} disabled={checked} onClick={() => { playSfx('select'); setSelected(index); }}>
-                    <span>{index + 1}</span><em lang="ja">{option}</em>{checked && index === view.answer && <b>✓</b>}
+                    <span>{index + 1}</span><em lang="ja"><FuriganaText text={option} furigana={furigana && current.type !== 'KANJI'} /></em>{checked && index === view.answer && <b>✓</b>}
                   </button>
                 );
               })}
@@ -599,8 +887,8 @@ export default function Home() {
 
             {checked && <div className={`feedback ${selected === view.answer ? 'success' : 'retry'}`} role="status">
               <b>{selected === view.answer ? 'Correct! よくできました' : 'Not quite — here’s the clue'}</b>
-              <p>{current.note}</p>
-              {current.narration && <details><summary>Review listening transcript</summary>{current.narration.map((line, index) => <p key={index} lang="ja" className={`script-line speaker-${line.speaker}`}>{line.text}</p>)}</details>}
+              <p><FuriganaText text={current.note} furigana={furigana} /></p>
+              {current.narration && <details><summary>Review listening transcript</summary>{current.narration.map((line, index) => <p key={index} lang="ja" className={`script-line speaker-${line.speaker}`}><FuriganaText text={line.text} furigana={furigana} /></p>)}</details>}
             </div>}
 
             {!outOfHearts && !veiled && <button className="check-button" disabled={selected === null} onClick={continueLesson}>

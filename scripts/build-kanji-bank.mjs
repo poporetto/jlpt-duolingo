@@ -46,10 +46,16 @@ const KANJI_RE = /[一-鿿]/;
 
 /** Reject anything Japanese phonotactics disallows — an impossible string is a giveaway. */
 function legal(r) {
-  if (!r || SMALL.has(r[0]) || r[0] === 'っ' || r[0] === 'ん') return false;
+  // Hiragana only: a katakana option (シリング, from an ateji reading) is a
+  // giveaway in a list of readings.
+  if (!/^[ぁ-ん]+$/.test(r ?? '')) return false;
+  if (SMALL.has(r[0]) || r[0] === 'っ' || r[0] === 'ん') return false;
   for (let i = 0; i < r.length; i += 1) {
     const prev = i ? r[i - 1] : '';
     if (SMALL.has(r[i]) && !YOUON_BASE.has(prev)) return false;
+    // ゅう and ょう are everyday long vowels; ゃう is pre-1946 spelling only.
+    if (r[i] === 'ゃ' && r[i + 1] === 'う') return false;
+    if (SMALL.has(r[i]) && SMALL.has(r[i + 1])) return false;
     if (r[i] === 'っ' && (i === r.length - 1 || !GEMOK.has(r[i + 1]) || prev === 'っ')) return false;
   }
   return true;
@@ -113,11 +119,77 @@ function lengthVariants(r) {
 
 /** Three distractors, best class first. A distractor that is itself a valid reading
  *  of the word would make the item have two right answers, so those are excluded. */
-function distractorsFor(word, reading, validReadings, kanji) {
+/** っ before an unvoiced obstruent — 質素 しっそ vs しそ is a staple exam trap. */
+function geminationVariants(r, register) {
+  if (register !== 'on') return [];
+  const out = [];
+  for (let i = 1; i < r.length; i += 1) {
+    if (GEMOK.has(r[i]) && r[i - 1] !== 'っ' && r[i - 1] !== 'ん') out.push(`${r.slice(0, i)}っ${r.slice(i)}`);
+  }
+  if (r.includes('っ')) out.push(r.replace('っ', ''));
+  return out;
+}
+
+/** Swapping the small kana in a digraph: しょう vs しゅう vs しゃう. */
+function youonVariants(r) {
+  const out = [];
+  for (let i = 0; i < r.length; i += 1) {
+    if (!SMALL.has(r[i])) continue;
+    for (const swap of SMALL) {
+      if (swap !== r[i]) out.push(r.slice(0, i) + swap + r.slice(i + 1));
+    }
+  }
+  return out;
+}
+
+/** Same consonant, different vowel — a standard 訓読み slip (たけ / たか / たき). */
+function vowelVariants(r) {
+  const ROWS = ['あいうえお', 'かきくけこ', 'がぎぐげご', 'さしすせそ', 'ざじずぜぞ', 'たちつてと', 'だぢづでど',
+    'なにぬねの', 'はひふへほ', 'ばびぶべぼ', 'ぱぴぷぺぽ', 'まみむめも', 'らりるれろ'];
+  const out = [];
+  for (let i = 0; i < r.length; i += 1) {
+    if (SMALL.has(r[i + 1])) continue;   // don't break a digraph
+    const row = ROWS.find((set) => set.includes(r[i]));
+    if (!row) continue;
+    for (const swap of row) if (swap !== r[i]) out.push(r.slice(0, i) + swap + r.slice(i + 1));
+  }
+  return out;
+}
+
+/**
+ * Last resort: the real reading of another word that shares a kanji with this
+ * one. A learner who mixes up 経済 and 経営 would pick けいえい, so this is a true
+ * near-miss — unlike an unrelated word of the same length, which is what the
+ * generated bank used to do and which anyone discards on sight.
+ */
+function neighbourReadings(word, reading, byKanji, vocab) {
+  const out = [];
+  for (const ch of word) {
+    for (const other of byKanji.get(ch) ?? []) {
+      if (other === word) continue;
+      const entries = vocab[other];
+      if (entries.length !== 1) continue;
+      const candidate = entries[0].reading;
+      if (Math.abs(candidate.length - reading.length) <= 1) out.push(candidate);
+    }
+  }
+  return out.sort((a, b) => Math.abs(a.length - reading.length) - Math.abs(b.length - reading.length));
+}
+
+function distractorsFor(word, reading, validReadings, kanji, byKanji, vocab) {
   const seen = new Set();
   const out = [];
   const register = registerOf(word, reading, kanji);
-  for (const group of [alternateReadings(word, reading, kanji), voicingVariants(reading, register), lengthVariants(reading)]) {
+  const groups = [
+    alternateReadings(word, reading, kanji),
+    voicingVariants(reading, register),
+    lengthVariants(reading),
+    geminationVariants(reading, register),
+    youonVariants(reading),
+    vowelVariants(reading),
+    neighbourReadings(word, reading, byKanji, vocab),
+  ];
+  for (const group of groups) {
     for (const v of group) {
       if (validReadings.has(v) || v === reading || seen.has(v) || !legal(v)) continue;
       seen.add(v);
@@ -163,6 +235,15 @@ async function main() {
 
   // Collect example sentences that contain the exact surface form. An inflected
   // hit ("見込んでいる" for 見込む) can't be underlined, so it is no use here.
+  const byKanji = new Map();
+  for (const w of Object.keys(vocab)) {
+    if (!KANJI_RE.test(w)) continue;
+    for (const ch of w) {
+      if (!byKanji.has(ch)) byKanji.set(ch, []);
+      byKanji.get(ch).push(w);
+    }
+  }
+
   const sentences = new Map();
   for (const entry of words) {
     const surfaces = (entry.kanji ?? []).map((k) => k.text).filter((t) => vocab[t]);
@@ -184,7 +265,12 @@ async function main() {
 
   /** A carrier may not be harder than the item: reject sentences containing kanji
    *  more than one level above, or that run too long to read at a glance. */
-  const carrierOk = (text, level) => text.length <= 42 &&
+  // Sentence length has to scale with the level. A single 42-character cap was
+  // sized for N5 and then applied to N1 as well, where it was the *only* filter
+  // still doing anything — the kanji-difficulty clause is vacuous at the top two
+  // levels, since nothing sits above them.
+  const maxCarrier = { 5: 42, 4: 50, 3: 64, 2: 80, 1: 96 };
+  const carrierOk = (text, level) => text.length <= (maxCarrier[level] ?? 42) &&
     [...text].every((ch) => !KANJI_RE.test(ch) || !levelOf.has(ch) || levelOf.get(ch) >= level - 2);
 
   // Build every usable item once, keyed by the word.
@@ -192,7 +278,7 @@ async function main() {
   for (const [word, entries] of Object.entries(vocab)) {
     if (!KANJI_RE.test(word) || entries.length !== 1) continue;   // multi-reading ⇒ two right answers
     const { reading, level } = entries[0];
-    const distractors = distractorsFor(word, reading, new Set(entries.map((e) => e.reading)), kanji);
+    const distractors = distractorsFor(word, reading, new Set(entries.map((e) => e.reading)), kanji, byKanji, vocab);
     if (distractors.length < 3) continue;
     const carriers = (sentences.get(word) ?? []).sort((a, b) => a.length - b.length);
     if (!carriers.length) continue;
@@ -227,13 +313,23 @@ async function main() {
     }
   }
 
-  // Top up each level with more words of its own level, for variety within a sitting.
+  // Top up each level towards one item per kanji on its own list.
+  //
+  // A flat cap here was wrong: it bound N2 (whose kanji are less well served by
+  // the reference vocabulary, so coverage alone fell short of it) but not N3
+  // (whose coverage already exceeded it). The result was N3 shipping more items
+  // than N2 despite being the easier level. Scaling the target to the level's
+  // own kanji count keeps the mastery totals ordered by how much there actually
+  // is to learn, and is self-limiting because a level can only top up from words
+  // that exist.
+  const kanjiPerLevel = {};
+  for (const level of levelOf.values()) kanjiPerLevel[level] = (kanjiPerLevel[level] ?? 0) + 1;
   for (const level of [5, 4, 3, 2, 1]) {
     const extras = items
       .filter((it) => it.wordLevel === level && !used.has(it.word))
       .map((it) => ({ it, carrier: it.carriers.find((t) => carrierOk(t, level)) }))
       .filter(({ carrier }) => carrier)
-      .slice(0, Math.max(0, 220 - byLevel[level].length));
+      .slice(0, Math.max(0, (kanjiPerLevel[level] ?? 0) - byLevel[level].length));
     for (const { it, carrier } of extras) {
       used.add(it.word);
       byLevel[level].push({ word: it.word, reading: it.reading, distractors: it.distractors, sentence: carrier });
@@ -262,7 +358,7 @@ async function main() {
     sameLength.get(n).push(word);
   }
   const orthography = {};
-  for (const level of [5, 4, 3, 2, 1]) {
+  for (const level of [5, 4, 3, 2]) {   // 表記 is N2–N5 only, per jlpt.jp
     const rows = [];
     for (const item of byLevel[level]) {
       const homophones = (byReading.get(item.reading) ?? []).filter((w) => w !== item.word);
@@ -278,7 +374,7 @@ async function main() {
   }
   const orthoTotal = Object.values(orthography).reduce((a, b) => a + b.length, 0);
   console.log(`表記 items with true homophone distractors: ${orthoTotal}`);
-  for (const level of [5, 4, 3, 2, 1]) out[`N${level}`] = { reading: out[`N${level}`], orthography: orthography[`N${level}`] };
+  for (const level of [5, 4, 3, 2, 1]) out[`N${level}`] = { reading: out[`N${level}`], orthography: orthography[`N${level}`] ?? [] };
 
   await writeFile(path.join(root, 'app', 'kanji-bank.json'), `${JSON.stringify(out)}\n`);
   const bytes = (await stat(path.join(root, 'app', 'kanji-bank.json'))).size;

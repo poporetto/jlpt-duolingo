@@ -230,6 +230,20 @@ function optionsFrom(words: Word[], index: number, field: 'word' | 'reading' | '
   return [0, 1, 2, 3].map((offset) => words[(index + offset * 5) % words.length][field]);
 }
 
+/** 文の組み立て drills the *starred slot*, so every item needs its own sentence and
+ *  its own answer. The generated version rotated a place name through one frame,
+ *  leaving 24 items with two answers between them. */
+const n5Assembly: { sentence: string; options: [string, string, string, string]; order: string; note: string }[] = [
+  { sentence: 'つくえの　＿＿＿　＿★＿　＿＿＿　＿＿＿　あります。', options: ['に', 'うえ', 'が', 'ほん'], order: 'つくえの　うえ　に　ほん　が　あります', note: 'Anchor 〜が あります at the end, then work backwards.' },
+  { sentence: 'わたしは　＿＿＿　＿★＿　＿＿＿　＿＿＿　のみます。', options: ['を', 'まいあさ', 'コーヒー', 'いっぱい'], order: 'わたしは　まいあさ　コーヒー　を　いっぱい　のみます', note: 'The object marker を follows the noun it marks, which fixes the second slot.' },
+  { sentence: 'きのう　＿＿＿　＿★＿　＿＿＿　＿＿＿　かきました。', options: ['に', 'ともだち', 'てがみ', 'を'], order: 'きのう　ともだち　に　てがみ　を　かきました', note: 'The person who receives takes に; the thing written takes を.' },
+  { sentence: 'この　へやは　＿＿＿　＿★＿　＿＿＿　＿＿＿　です。', options: ['て', 'ひろく', 'あかるい', 'とても'], order: 'この　へやは　ひろく　て　とても　あかるい　です', note: 'Two adjectives join with the て-form of the first.' },
+  { sentence: 'いもうとは　＿＿＿　＿★＿　＿＿＿　＿＿＿　います。', options: ['を', 'テレビ', 'みて', 'いま'], order: 'いもうとは　いま　テレビ　を　みて　います', note: '〜ています closes the sentence, so みて sits immediately before います.' },
+  { sentence: 'あした　＿＿＿　＿★＿　＿＿＿　＿＿＿　いきます。', options: ['で', 'でんしゃ', 'かいしゃ', 'へ'], order: 'あした　でんしゃ　で　かいしゃ　へ　いきます', note: 'で marks the means, へ marks the direction.' },
+  { sentence: 'この　みせの　＿＿＿　＿★＿　＿＿＿　＿＿＿　です。', options: ['は', 'パン', 'とても', 'おいしい'], order: 'この　みせの　パン　は　とても　おいしい　です', note: 'The topic marker は follows the noun phrase it marks.' },
+  { sentence: 'にちようびに　＿＿＿　＿★＿　＿＿＿　＿＿＿　しました。', options: ['と', 'ともだち', 'かいもの', 'を'], order: 'にちようびに　ともだち　と　かいもの　を　しました', note: 'と marks the companion; を marks what was done.' },
+];
+
 function makeN5(spec: Spec, index: number): Question {
   const word = n5Words[index % n5Words.length];
   const grammar = n5Grammar[index % n5Grammar.length];
@@ -244,7 +258,7 @@ function makeN5(spec: Spec, index: number): Question {
   if (spec.itemType === 'Contextual vocabulary') return { ...common, prompt: '（　）に いれるのに いちばん いい ものを えらんで ください。', tokens: [`${name}：`, word.sentence.replace(word.word, '（　　）')], options: wordOptions(index), answer: 0, note: `${word.word}（${word.reading}） means ${word.meaning}; it is the natural fit in this context.` };
   if (spec.itemType === 'Paraphrase') return { ...common, prompt: 'ぶんと だいたい おなじ いみの ものを えらんで ください。', tokens: [`${day}、`, word.sentence], options: optionsFrom(n5Words, index, 'paraphrase'), answer: 0, note: `${word.word}（${word.reading}）means ${word.meaning}. In Japanese it can be restated as ${word.paraphrase}.` };
   if (spec.itemType === 'Grammar form') return { ...common, prompt: '（　）に いれるのに いちばん いい ものを えらんで ください。', tokens: [`${name}・${day}：`, grammar.sentence], options: [grammar.answer, ...grammar.distractors], answer: 0, note: grammar.note };
-  if (spec.itemType === 'Sentence assembly') return { ...common, prompt: '★ に はいる ものは どれですか。', tokens: [`${name}は　＿＿＿　＿★＿　＿＿＿　＿＿＿。`], options: ['で', place, '本を', '読みます'], answer: 0, note: `Correct order: ${name}は ${place} で 本を 読みます. The starred position is で.` };
+  if (spec.itemType === 'Sentence assembly') { const item = n5Assembly[index % n5Assembly.length]; return { ...common, prompt: '★ に はいる ものは どれですか。', tokens: [item.sentence], options: [...item.options], answer: 0, note: `Correct order: ${item.order}。The ★ is the second blank. ${item.note}` }; }
   if (spec.itemType === 'Text grammar') return { ...common, prompt: 'ぶんしょうの（　）に いちばん いい ものを えらんで ください。', passage: [[`${name}は　日よう日に　${place}へ　いきました。`], ['（　　）、そこで　友達に　あいました。']], options: ['そして', 'でも', 'まだ', 'だけ'], answer: 0, note: 'そして connects two events in sequence.' };
   if (spec.type === 'READING') {
     const isInfo = spec.itemType === 'Information retrieval';
@@ -308,7 +322,9 @@ export function expandQuestionBank(level: Level, existing: Question[]) {
   // Grammar specs run once per grammar point; otherwise most of the list is never
   // reached and the extra points are dead data.
   const desiredFor = (spec: Spec) =>
-    spec.itemType === 'Grammar form' ? Math.max(desired, grammarPoints.length) : desired;
+    spec.itemType === 'Grammar form' ? Math.max(desired, grammarPoints.length)
+      : spec.itemType === 'Sentence assembly' && level === 'N5' ? n5Assembly.length
+      : desired;
   specs.forEach((spec) => {
     const have = result.filter((question) => question.itemType === spec.itemType).length;
     for (let index = have; index < desiredFor(spec); index += 1) result.push(level === 'N5' ? makeN5(spec, index) : makeN4(spec, index));

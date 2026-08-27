@@ -1,6 +1,8 @@
 import { expandQuestionBank } from './expanded-bank.ts';
 import { kanjiQuestions } from './kanji-questions.ts';
 import { listeningQuestions } from './listening-questions.ts';
+import { pictureForText } from './scenes.ts';
+import { readingQuestions, textGrammarQuestions } from './reading-questions.ts';
 
 export type Level = 'N1' | 'N2' | 'N3' | 'N4' | 'N5';
 
@@ -113,7 +115,7 @@ export const questionBank: Record<Level, Question[]> = {
       ],
       options: ['ぎゅうにゅう', 'たまご', 'パン', 'みず'], answer: 0,
       note: 'She asks for eggs, but they are sold out. 「それ」 in her last line points at the ぎゅうにゅう the clerk just offered. In 課題理解 the first thing mentioned is very often not the answer.',
-      image: '/irasutoya-shopping.png', imageAlt: 'A family shopping at a supermarket',
+      image: '/irasutoya-shopping.webp', imageAlt: 'A family shopping at a supermarket',
     },
     {
       type: 'LISTENING', badge: '聴解', itemType: 'Quick response', jpItemType: '即時応答',
@@ -122,7 +124,6 @@ export const questionBank: Record<Level, Question[]> = {
       narration: [{ speaker: 'a', text: 'すみません。その　あかい　りんごを　みっつ　ください。' }],
       options: ['はい、みっつですね。', 'いいえ、りんごでした。', 'さんじに　いきます。', 'あかく　ありません。'], answer: 0,
       note: 'A customer is ordering, so the shopkeeper confirms the quantity. 三つ (みっつ, three items) and 三時 (さんじ, three o’clock) sound similar — that near-homophone trap is standard in 即時応答.',
-      image: '/irasutoya-shopping.png', imageAlt: 'A family shopping at a supermarket',
     },
   ],
 
@@ -189,7 +190,7 @@ export const questionBank: Record<Level, Question[]> = {
       ],
       options: ['卵', '牛乳', 'パン', 'ジュース'], answer: 0,
       note: 'She came for 牛乳, but after hearing the eggs may sell out she says 「先にそちらへ行きます」 — そちら is where the eggs are. The word まず in the question is the whole point: it asks for the order, not the shopping list.',
-      image: '/irasutoya-shopping.png', imageAlt: 'A family holding a shopping basket in a supermarket',
+      image: '/irasutoya-shopping.webp', imageAlt: 'A family holding a shopping basket in a supermarket',
     },
     {
       type: 'LISTENING', badge: '聴解', itemType: 'Quick response', jpItemType: '即時応答',
@@ -198,7 +199,6 @@ export const questionBank: Record<Level, Question[]> = {
       narration: [{ speaker: 'a', text: 'その　資料、コピーして　おきましょうか。' }],
       options: ['ええ、お願いします。', 'はい、コピーしました。', 'いいえ、資料です。', 'もう　行きましょう。'], answer: 0,
       note: '〜ましょうか here offers to do something for you, so the reply accepts or declines the offer. 「コピーしました」 answers a different question — a past-tense report, not a response to an offer.',
-      image: '/irasutoya-meeting.png', imageAlt: 'Colleagues talking in an office',
     },
   ],
 
@@ -267,7 +267,7 @@ export const questionBank: Record<Level, Question[]> = {
       ],
       options: ['資料の　印刷に　時間が　かかったから', '電車が　止まったから', '道が　こんで　いたから', '会議の　時間を　まちがえたから'], answer: 0,
       note: 'The train is raised and then explicitly denied — 「いいえ、電車は動いていました」. ポイント理解 nearly always plants a plausible reason early and knocks it down; train yourself to wait for the いいえ or でも before deciding.',
-      image: '/irasutoya-meeting.png', imageAlt: 'Businesspeople having a meeting',
+      image: '/irasutoya-meeting.webp', imageAlt: 'Businesspeople having a meeting',
     },
     {
       type: 'LISTENING', badge: '聴解', itemType: 'Quick response', jpItemType: '即時応答',
@@ -276,7 +276,6 @@ export const questionBank: Record<Level, Question[]> = {
       narration: [{ speaker: 'a', text: '明日の　会議、三時からに　変わったそうですよ。' }],
       options: ['えっ、教えて　くれて　助かります。', '三時まで　会議でした。', '会議は　変えませんでした。', '昨日なら　大丈夫です。'], answer: 0,
       note: '～そうですよ passes on information the listener probably has not heard yet, so the natural reply reacts to the news. The other three all answer questions that were never asked — a reply can be perfectly grammatical and still be wrong here.',
-      image: '/irasutoya-meeting.png', imageAlt: 'Businesspeople having a meeting',
     },
   ],
 
@@ -350,7 +349,7 @@ export const questionBank: Record<Level, Question[]> = {
         '東口が　閉まって　いるから',
       ], answer: 0,
       note: 'The reason is 「三十分以上かかる見込み」. 東口 and 振替乗車券 are mentioned, but as the how, not the why — announcements are dense with detail precisely so that you have to hold on to the question while you listen.',
-      image: '/irasutoya-station-staff.png', imageAlt: 'A station employee bowing apologetically',
+      image: '/irasutoya-station-staff.webp', imageAlt: 'A station employee bowing apologetically',
     },
     {
       type: 'LISTENING', badge: '聴解', itemType: 'Quick response', jpItemType: '即時応答',
@@ -359,7 +358,6 @@ export const questionBank: Record<Level, Question[]> = {
       narration: [{ speaker: 'a', text: 'ここだけの　話、来月　部署が　変わるらしいんです。' }],
       options: ['えっ、誰にも　言いませんよ。', 'はい、部署は　こちらです。', '来月なら　空いて　います。', 'もう　変わりましたか。'], answer: 0,
       note: 'ここだけの話 = "just between us", so the reply has to acknowledge the confidence. At N2 the 即時応答 hinges on set phrases like this rather than on grammar — a literal reading of the words misses the social move entirely.',
-      image: '/irasutoya-meeting.png', imageAlt: 'Colleagues talking in an office',
     },
   ],
 
@@ -436,7 +434,6 @@ export const questionBank: Record<Level, Question[]> = {
         'より　大きな　テントを　用意する　こと',
       ], answer: 0,
       note: 'The rain weakens, so rain is not the deciding factor — the wind is. 「開始時刻を遅らせるだけでは十分とは言えません」 rules out (3) explicitly, and cancelling is never proposed. 概要理解 gives you no question in advance, so listen for the conclusion marker: here, 現実的です.',
-      image: '/irasutoya-weather.png', imageAlt: 'A weather forecaster pointing to a forecast map',
     },
     {
       type: 'LISTENING', badge: '聴解', itemType: 'Quick response', jpItemType: '即時応答',
@@ -445,7 +442,6 @@ export const questionBank: Record<Level, Question[]> = {
       narration: [{ speaker: 'a', text: '課長の　あの　言い方は　ないんじゃないですか。'}],
       options: ['確かに、少し　きつかったですね。', 'はい、課長が　言いました。', '言い方が　わかりません。', 'まだ　言って　いません。'], answer: 0,
       note: '「～はないんじゃないですか」 is criticism phrased as a question, inviting the listener to agree. The reply 確かに aligns with it. Taking the sentence literally as a question about who said what leads straight to (2) — at N1 the 即時応答 items turn almost entirely on tone and implication.',
-      image: '/irasutoya-meeting.png', imageAlt: 'Colleagues talking in an office',
     },
   ],
 };
@@ -478,9 +474,60 @@ for (const level of levels) {
   const authored = listeningQuestions(level);
   if (!authored.length) continue;
   const seeds = handAuthored[level].filter((question) => question.type === 'LISTENING');
+  const quickCount = [...seeds, ...authored].filter((question) => question.itemType === 'Quick response').length;
+  const seenAudio = new Set([...seeds, ...authored].map((question) => question.audio).filter(Boolean));
+  const quickTopUp = questionBank[level].filter(
+    (question) => question.type === 'LISTENING'
+      && question.itemType === 'Quick response'
+      && question.audio
+      && !seenAudio.has(question.audio),
+  ).slice(0, Math.max(0, 16 - quickCount));
   questionBank[level] = [
     ...questionBank[level].filter((question) => question.type !== 'LISTENING'),
     ...seeds,
     ...authored,
+    ...quickTopUp,
   ];
+}
+
+// Same story for 読解: 372 generated items were rotations of ~50 template
+// passages, several 大問 having sixteen items with one shared answer. A reading
+// item *is* its passage, so swap them for authored ones.
+for (const level of levels) {
+  const authored = readingQuestions(level);
+  if (!authored.length) continue;
+  const seeds = handAuthored[level].filter((question) => question.type === 'READING');
+  questionBank[level] = [
+    ...questionBank[level].filter((question) => question.type !== 'READING'),
+    ...seeds,
+    ...authored,
+  ];
+}
+
+// 文章の文法 had sixteen items per level sharing one connective. Replace it too.
+for (const level of levels) {
+  const authored = textGrammarQuestions(level);
+  if (!authored.length) continue;
+  questionBank[level] = [
+    ...questionBank[level].filter((question) => question.jpItemType !== '文章の文法'),
+    ...authored,
+  ];
+}
+
+// Illustrations for the text sections. The real 問題用紙 prints no picture on
+// 読解 or 文字・語彙 — these are a learning aid, not exam realism — so they go only
+// where the passage names a scene the art actually depicts, and never on 漢字 or
+// 文法 items, whose carriers are real sentences a cartoon would fight with.
+// Reusing the existing illustrations costs nothing against いらすとや's 20-image
+// limit, which counts duplicates as one.
+for (const level of levels) {
+  questionBank[level] = questionBank[level].map((question) => {
+    if (question.image || (question.type !== 'READING' && question.type !== 'VOCABULARY')) return question;
+    const text = [
+      ...(question.passage ?? []).flat(),
+      ...(question.tokens ?? []),
+    ].map((token) => (typeof token === 'string' ? token : token.kanji)).join('');
+    const picture = pictureForText(text);
+    return picture.image ? { ...question, ...picture } : question;
+  });
 }

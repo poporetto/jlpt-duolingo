@@ -12,7 +12,8 @@
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern docs",
     "audio": "node scripts/generate-audio.mjs",
-    "curriculum:audit": "node scripts/audit-curriculum.mjs"
+    "curriculum:audit": "node scripts/audit-curriculum.mjs",
+    "audit": "node scripts/audit-bank.mjs"
   },
   "dependencies": {
     "next": "16.2.6",

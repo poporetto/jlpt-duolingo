@@ -184,6 +184,25 @@ const n2Grammar: Grammar[] = [
   ['～わけにはいかない', '大事な会議なので、休む（　）。', 'わけにはいかない', ['ようがない', 'ほかならない', 'にすぎない'], '～わけにはいかない marks a social or moral impossibility.'],
 ].map((entry) => { const [form, sentence, answer, distractors, note] = entry as [string, string, string, [string, string, string], string]; return { form, sentence, answer, distractors, note }; });
 
+const n2Formation = [
+  ['再', '評価', '結果を（　）評価し、判断を見直すことになった。', ['未', '無', '不'], '再評価 means evaluating again.'],
+  ['未', '確認', '安全性が（　）確認の情報は公開できない。', ['再', '非', '高'], '未確認 means not yet confirmed.'],
+  ['無', '関係', '年齢とは（　）関係に応募できる。', ['不', '再', '低'], '無関係 means unrelated.'],
+  ['不', '十分', '説明が（　）十分だったため、誤解が生じた。', ['未', '無', '再'], '不十分 means insufficient.'],
+  ['高', '性能', '消費電力の少ない（　）性能な機器を導入した。', ['低', '未', '反'], '高性能 means high-performance.'],
+  ['低', '価格', '品質を保ちながら（　）価格を実現した。', ['高', '再', '非'], '低価格 means low-priced.'],
+  ['省', 'エネ', '工場では（　）エネ設備への更新が進んでいる。', ['再', '未', '反'], '省エネ means energy conservation.'],
+  ['新', '制度', '来年度から（　）制度が段階的に始まる。', ['旧', '未', '無'], '新制度 means a new system.'],
+  ['旧', '市街', '駅の東側には（　）市街の建物が残っている。', ['新', '高', '不'], '旧市街 means the old urban district.'],
+  ['非', '公開', '個人情報を含む資料は（　）公開とする。', ['未', '再', '高'], '非公開 means not open to the public.'],
+  ['全', '地域', 'この調査は県内の（　）地域を対象にする。', ['各', '未', '不'], '全地域 means all regions.'],
+  ['各', '機関', '詳細は関係する（　）機関に問い合わせてください。', ['全', '再', '低'], '各機関 means each institution.'],
+  ['反', '作用', '便利さの一方で（　）作用も検討する必要がある。', ['再', '未', '高'], '反作用 means a countereffect.'],
+  ['多', '文化', '地域で（　）文化共生を進める取り組みが始まった。', ['少', '未', '逆'], '多文化 means multicultural.'],
+  ['少', '人数', '実習は講師一人につき（　）人数で行われる。', ['多', '再', '不'], '少人数 means a small number of people.'],
+  ['逆', '効果', '過度な制限はかえって（　）効果になりかねない。', ['反', '未', '低'], '逆効果 means the opposite of the intended effect.'],
+] as const;
+
 const people = ['田中さん', '山本さん', 'リーさん', '佐々木さん', '高橋さん', '木村さん', '伊藤さん', '森さん'];
 const days = ['月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日', '祝日の翌日'];
 /** Day-change listening items need real weekdays only — 祝日の翌日 is not a valid option. */
@@ -205,9 +224,12 @@ function languageQuestion(level: 'N3' | 'N2', spec: Spec, index: number, words: 
   if (spec.itemType === 'Contextual vocabulary') return { ...common, prompt: '（　）に入れるのに最もよいものを選んでください。', tokens: [`${tag}：${word.sentence.replace(word.word, '（　　）')}`], options: pick4(words, index, 'word'), answer: 0, note: `${word.word}（${word.reading}） means ${word.meaning}.` };
   if (spec.itemType === 'Paraphrase') return { ...common, prompt: '＿＿と意味が最も近いものを選んでください。', tokens: [`${tag}：${word.sentence}`], options: pick4(words, index, 'paraphrase'), answer: 0, note: `${word.word}（${word.reading}）means ${word.meaning}. In Japanese it can be restated as ${word.paraphrase}.` };
   if (spec.itemType === 'Usage') return { ...common, prompt: `「${word.word}」の使い方として最もよいものを選んでください。`, options: [`${tag}：${word.sentence}`, `${tag}：机を${word.word}に飲んだ。`, `${tag}：空が${word.word}を走っている。`, `${tag}：この靴は${word.word}で甘い。`], answer: 0, note: `Only the first sentence uses ${word.word} naturally in the sense “${word.meaning}.”` };
-  if (spec.itemType === 'Word formation') return { ...common, prompt: '（　）に入れて一つの言葉にするとき、最もよいものを選んでください。', tokens: [`${tag}：省エネ設備の（　）導入が進められている。`], options: ['再', '未', '無', '不'], answer: 0, note: '再導入 means introducing something again; 再 is a productive prefix at N2.' };
+  if (spec.itemType === 'Word formation') {
+    const formation = n2Formation[index % n2Formation.length];
+    return { ...common, prompt: `（　）に入れて「（　）${formation[1]}」という一つの言葉を作るとき、最もよいものを選んでください。`, tokens: [`${tag}：${formation[2]}`], options: [formation[0], ...formation[3]], answer: 0, note: formation[4] };
+  }
   if (spec.itemType === 'Grammar form') return { ...common, prompt: '（　）に入れるのに最もよいものを選んでください。', tokens: [`${tag}：${grammar.sentence}`], options: [grammar.answer, ...grammar.distractors], answer: 0, note: `${grammar.form}: ${grammar.note}` };
-  if (spec.itemType === 'Sentence assembly') return { ...common, prompt: '★に入るものはどれですか。', tokens: [`${tag}：${person}は ＿＿＿ ＿★＿ ＿＿＿ ＿＿＿ と話した。`], options: [grammar.answer, '今回の結果は', '予想していた', 'とは違う'], answer: 0, note: `Build the whole sentence before selecting the starred slot. This item practises ${grammar.form}.` };
+  if (spec.itemType === 'Sentence assembly') return { ...common, prompt: '★に入るものはどれですか。', tokens: [`${tag}：${person}は ＿＿＿ ＿★＿ ＿＿＿ ＿＿＿ と話した。`], options: ['予想していた', '今回の結果は', 'もの', 'とは違う'], answer: 0, note: 'Correct order: 今回の結果は／予想していた／もの／とは違う. The starred second slot is 予想していた.' };
   if (spec.itemType === 'Text grammar') return { ...common, prompt: '文章の（　）に入れるのに最もよいものを選んでください。', passage: [[`${tag}：${day}、${place}で説明会が開かれた。`], [`${person}は参加を希望していた。（　　）、急な仕事で会場へ行けなかった。`], ['そこで、後日公開された動画で内容を確認した。']], options: ['ところが', 'したがって', 'たとえば', 'つまり'], answer: 0, note: 'ところが introduces an unexpected contrast between the intention and what happened.' };
   return null;
 }
