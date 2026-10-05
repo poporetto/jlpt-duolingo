@@ -1,0 +1,26 @@
+Listening audio in this directory was synthesised with VOICEVOX.
+
+    VOICEVOX  https://voicevox.hiroshiba.jp/
+
+The voice libraries used, and the credit each one requires:
+
+    VOICEVOX:No.7          narration / question framing
+                           terms: https://voiceseven.com/#j0200
+                           non-commercial use (doujin sales and streaming
+                           revenue are permitted); other commercial use needs
+                           prior confirmation from No.7製作委員会
+                           https://voiceseven.com/
+
+    VOICEVOX:九州そら        female speakers in dialogues
+                           terms: https://zunko.jp/con_ongen_kiyaku.html
+                           commercial and non-commercial use permitted
+
+    VOICEVOX:青山龍星        male speakers in dialogues
+                           terms: https://www.virvoxproject.com/voicevoxの利用規約
+                           individual use permitted; use involving a company
+                           needs prior confirmation from ななはぴ
+                           https://v.seventhh.com/contact/
+
+If you redistribute these audio files, you must carry these credits with them
+and observe each voice library's terms above — that obligation passes on to
+whoever receives them.

@@ -64,6 +64,38 @@ for (const level of levels) {
       if (!q.audio) findings.push([id, 'listening item with no audio id']);
       else if (!clips.has(q.audio)) findings.push([id, `audio clip missing: ${q.audio}`]);
       if (q.jpItemType === '概要理解' && !q.revealAfterAudio) findings.push([id, '概要理解 must set revealAfterAudio']);
+      // Speaker gender has to match what the narration says about it. 聴解 questions
+      // routinely ask 「女の人は…」, so a dialogue voiced with the genders swapped
+      // makes the question unanswerable. Every speaker is 'man' or 'woman'; these
+      // checks tie that choice back to the script's own words.
+      const said = (q.narration ?? []).filter((l) => l.speaker === 'narrator').map((l) => l.text).join('').replace(/[　 ]/g, '');
+      const voices = new Set((q.narration ?? []).filter((l) => l.speaker !== 'narrator').map((l) => l.speaker));
+      for (const [word, gender] of [['女の人', 'woman'], ['男の人', 'man']]) {
+        if (said.includes(word) && !voices.has(gender)) findings.push([id, `narration says ${word} but no ${gender} speaker`]);
+      }
+      const pair = said.match(/(女の人|男の人)と(女の人|男の人)/);
+      if (pair && pair[1] === pair[2]) findings.push([id, `narration names two ${pair[1]} but speakers are distinct voices`]);
+      const solo = said.match(/(女の人|男の人)が/);
+      if (solo && voices.size === 1) {
+        const want = solo[1] === '女の人' ? 'woman' : 'man';
+        if (!voices.has(want)) findings.push([id, `narration says ${solo[1]} が but the speaker is ${[...voices][0]}`]);
+      }
+      for (const l of q.narration ?? []) {
+        if (l.speaker === 'woman' && /僕|俺/.test(l.text)) findings.push([id, 'woman uses 僕/俺']);
+      }
+      // 課題理解 and ポイント理解 read the question twice, once before the dialogue and
+      // once after. The two readings have to be the same question: one item opened with
+      // 「二人は何を持って行きますか」 and closed with 「男の人は…」, which made two of its
+      // four options correct. 概要理解 and 統合理解 pose no question up front, so an
+      // opening line that asks nothing is left alone.
+      const narrators = (q.narration ?? []).filter((l) => l.speaker === 'narrator');
+      if (narrators.length > 1) {
+        const opens = narrators[0].text.replace(/[　 ]/g, '');
+        const closes = narrators[narrators.length - 1].text.replace(/[　 ]/g, '');
+        if (/か。?$/.test(opens) && /か。?$/.test(closes) && !opens.includes(closes)) {
+          findings.push([id, 'the question asked before the audio differs from the one asked after']);
+        }
+      }
     }
     // Item-shape checks. Each of these caught a real defect: 用法 that varied only
     // the particle, 言い換え類義 offering dictionary definitions instead of

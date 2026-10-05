@@ -8,9 +8,12 @@ button,a { font:inherit; }
 button { cursor:pointer; }
 .ui-icon { position:relative; display:inline-block; flex:0 0 auto; width:20px; height:20px; color:currentColor; }
 .ui-icon-arrow-right,.ui-icon-arrow-left { width:22px; height:16px; }
-/* Shaft centred on y=8; the head below is centred on the same line so the two meet. */
+/* Shaft and head are both centred on y=8 so the two meet. The head needs its own
+   box-sizing: the `*` reset above does not match pseudo-elements, so without this
+   its 4px borders are added outside the 9px box — pushing the head 2px below the
+   shaft and throwing the rotated tip out past the 22px icon. */
 .ui-icon-arrow-right::before,.ui-icon-arrow-left::before { content:''; position:absolute; left:0; top:6px; width:16px; height:4px; border-radius:99px; background:currentColor; }
-.ui-icon-arrow-right::after,.ui-icon-arrow-left::after { content:''; position:absolute; left:9px; top:3.5px; width:9px; height:9px; border-top:4px solid currentColor; border-right:4px solid currentColor; border-radius:2px; transform:rotate(45deg); }
+.ui-icon-arrow-right::after,.ui-icon-arrow-left::after { content:''; box-sizing:border-box; position:absolute; left:9px; top:3.5px; width:9px; height:9px; border-top:4px solid currentColor; border-right:4px solid currentColor; border-radius:2px; transform:rotate(45deg); }
 .ui-icon-arrow-left { transform:scaleX(-1); }
 .ui-icon-close::before,.ui-icon-close::after { content:''; position:absolute; left:1px; top:8px; width:19px; height:4px; border-radius:99px; background:currentColor; }
 .ui-icon-close::before { transform:rotate(45deg); }.ui-icon-close::after { transform:rotate(-45deg); }
@@ -245,8 +248,8 @@ footer a { color:var(--green); }
 .prompt-veiled small { display:block; margin-top:7px; font-family:var(--font-ui); font-size:12px; font-weight:400; color:#93998f; letter-spacing:0; }
 .feedback .script-line { margin:4px 0 0; }
 .feedback .script-line.speaker-narrator { opacity:.72; font-size:12px; }
-.feedback .script-line.speaker-a::before { content:'A　'; opacity:.5; }
-.feedback .script-line.speaker-b::before { content:'B　'; opacity:.5; }
+.feedback .script-line.speaker-woman::before { content:'女：'; opacity:.5; }
+.feedback .script-line.speaker-man::before { content:'男：'; opacity:.5; }
 
 /* Scene illustration on the text sections — a quiet aid beside the passage,
    deliberately smaller than the listening artwork so it never competes with

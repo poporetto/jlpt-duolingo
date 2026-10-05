@@ -240,7 +240,7 @@ export function rankJapaneseVoices(all: SpeechSynthesisVoice[]) {
 }
 
 const RATE: Record<Level, number> = { N5: 0.74, N4: 0.82, N3: 0.9, N2: 0.97, N1: 1.0 };
-const PITCH: Record<NarrationLine['speaker'], number> = { narrator: 1.0, a: 1.14, b: 0.82 };
+const PITCH: Record<NarrationLine['speaker'], number> = { narrator: 1.0, woman: 1.12, man: 0.84 };
 
 /** Walk the lines one at a time so the authored pauses actually happen. */
 function speakLines(lines: NarrationLine[], level: Level, voice: SpeechSynthesisVoice | undefined, done: () => void) {

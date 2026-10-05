@@ -11,7 +11,7 @@ export type Level = 'N1' | 'N2' | 'N3' | 'N4' | 'N5';
  *  furigana is always suppressed there so a kanji-reading question can't spoil itself. */
 export type Token = string | { kanji: string; reading: string; target?: boolean };
 
-export type Speaker = 'narrator' | 'a' | 'b';
+export type Speaker = 'narrator' | 'man' | 'woman';
 
 /** Listening audio is authored as ordered lines, never one blob: speaker labels
  *  must never be spoken, and the pauses are what make it sound like exam audio. */
@@ -112,9 +112,9 @@ export const questionBank: Record<Level, Question[]> = {
       audio: 'n5-task',
       narration: [
         { speaker: 'narrator', text: 'みせで　おんなの人と　てんいんが　はなしています。おんなの人は　なにを　かいますか。', pauseAfter: 800 },
-        { speaker: 'a', text: 'すみません、たまごは　ありますか。', pauseAfter: 350 },
-        { speaker: 'b', text: 'すみません、きょうは　もう　ありません。ぎゅうにゅうは　ありますよ。', pauseAfter: 350 },
-        { speaker: 'a', text: 'そうですか。じゃあ、それを　ください。', pauseAfter: 700 },
+        { speaker: 'woman', text: 'すみません、たまごは　ありますか。', pauseAfter: 350 },
+        { speaker: 'man', text: 'すみません、きょうは　もう　ありません。ぎゅうにゅうは　ありますよ。', pauseAfter: 350 },
+        { speaker: 'woman', text: 'そうですか。じゃあ、それを　ください。', pauseAfter: 700 },
         { speaker: 'narrator', text: 'おんなの人は　なにを　かいますか。' },
       ],
       options: ['ぎゅうにゅう', 'たまご', 'パン', 'みず'], answer: 0,
@@ -125,7 +125,7 @@ export const questionBank: Record<Level, Question[]> = {
       type: 'LISTENING', badge: '聴解', itemType: 'Quick response', jpItemType: '即時応答',
       prompt: 'きいて、いちばん いい へんじを えらんで ください。',
       audio: 'n5-response',
-      narration: [{ speaker: 'a', text: 'すみません。その　あかい　りんごを　みっつ　ください。' }],
+      narration: [{ speaker: 'woman', text: 'すみません。その　あかい　りんごを　みっつ　ください。' }],
       options: ['はい、みっつですね。', 'いいえ、りんごでした。', 'さんじに　いきます。', 'あかく　ありません。'], answer: 0,
       note: 'A customer is ordering, so the shopkeeper confirms the quantity. 三つ (みっつ, three items) and 三時 (さんじ, three o’clock) sound similar — that near-homophone trap is standard in 即時応答.',
     },
@@ -187,9 +187,9 @@ export const questionBank: Record<Level, Question[]> = {
       audio: 'n4-task',
       narration: [
         { speaker: 'narrator', text: 'スーパーで　女の人と　店員が　話しています。女の人は、まず　何を　買いますか。', pauseAfter: 800 },
-        { speaker: 'a', text: 'すみません、牛乳は　どこですか。', pauseAfter: 350 },
-        { speaker: 'b', text: '飲み物は　奥です。でも、卵は　もうすぐ　売り切れますよ。', pauseAfter: 350 },
-        { speaker: 'a', text: 'そうですか。じゃあ、先に　そちらへ　行きます。', pauseAfter: 700 },
+        { speaker: 'woman', text: 'すみません、牛乳は　どこですか。', pauseAfter: 350 },
+        { speaker: 'man', text: '飲み物は　奥です。でも、卵は　もうすぐ　売り切れますよ。', pauseAfter: 350 },
+        { speaker: 'woman', text: 'そうですか。じゃあ、先に　そちらへ　行きます。', pauseAfter: 700 },
         { speaker: 'narrator', text: '女の人は、まず　何を　買いますか。' },
       ],
       options: ['卵', '牛乳', 'パン', 'ジュース'], answer: 0,
@@ -200,7 +200,7 @@ export const questionBank: Record<Level, Question[]> = {
       type: 'LISTENING', badge: '聴解', itemType: 'Quick response', jpItemType: '即時応答',
       prompt: '聞いて、いちばん いい 返事を えらんで ください。',
       audio: 'n4-response',
-      narration: [{ speaker: 'a', text: 'その　資料、コピーして　おきましょうか。' }],
+      narration: [{ speaker: 'man', text: 'その　資料、コピーして　おきましょうか。' }],
       options: ['ええ、お願いします。', 'はい、コピーしました。', 'いいえ、資料です。', 'もう　行きましょう。'], answer: 0,
       note: '〜ましょうか here offers to do something for you, so the reply accepts or declines the offer. 「コピーしました」 answers a different question — a past-tense report, not a response to an offer.',
     },
@@ -263,10 +263,10 @@ export const questionBank: Record<Level, Question[]> = {
       audio: 'n3-point',
       narration: [
         { speaker: 'narrator', text: '会社で　男の人と　女の人が　話しています。女の人は　どうして　会議に　遅れましたか。', pauseAfter: 800 },
-        { speaker: 'a', text: '遅かったですね。電車が　止まったんですか。', pauseAfter: 350 },
-        { speaker: 'b', text: 'いいえ、電車は　動いて　いました。実は、資料の　印刷に　時間が　かかって…。', pauseAfter: 350 },
-        { speaker: 'a', text: 'ああ、コピー機、また　調子が　悪かったんですか。', pauseAfter: 350 },
-        { speaker: 'b', text: 'ええ。途中で　紙が　なくなって　しまって。', pauseAfter: 700 },
+        { speaker: 'man', text: '遅かったですね。電車が　止まったんですか。', pauseAfter: 350 },
+        { speaker: 'woman', text: 'いいえ、電車は　動いて　いました。実は、資料の　印刷に　時間が　かかって…。', pauseAfter: 350 },
+        { speaker: 'man', text: 'ああ、コピー機、また　調子が　悪かったんですか。', pauseAfter: 350 },
+        { speaker: 'woman', text: 'ええ。途中で　紙が　なくなって　しまって。', pauseAfter: 700 },
         { speaker: 'narrator', text: '女の人は　どうして　会議に　遅れましたか。' },
       ],
       options: ['資料の　印刷に　時間が　かかったから', '電車が　止まったから', '道が　こんで　いたから', '会議の　時間を　まちがえたから'], answer: 0,
@@ -277,7 +277,7 @@ export const questionBank: Record<Level, Question[]> = {
       type: 'LISTENING', badge: '聴解', itemType: 'Quick response', jpItemType: '即時応答',
       prompt: '聞いて、最も よい 返事を えらんで ください。',
       audio: 'n3-response',
-      narration: [{ speaker: 'a', text: '明日の　会議、三時からに　変わったそうですよ。' }],
+      narration: [{ speaker: 'woman', text: '明日の　会議、三時からに　変わったそうですよ。' }],
       options: ['えっ、教えて　くれて　助かります。', '三時まで　会議でした。', '会議は　変えませんでした。', '昨日なら　大丈夫です。'], answer: 0,
       note: '～そうですよ passes on information the listener probably has not heard yet, so the natural reply reacts to the news. The other three all answer questions that were never asked — a reply can be perfectly grammatical and still be wrong here.',
     },
@@ -342,8 +342,8 @@ export const questionBank: Record<Level, Question[]> = {
       audio: 'n2-point',
       narration: [
         { speaker: 'narrator', text: '駅で　駅員が　利用客に　案内しています。駅員は　どうして　地下鉄を　勧めて　いますか。', pauseAfter: 800 },
-        { speaker: 'a', text: 'お客様、ただいま　事故の　影響で、この先の　電車は　到着まで　三十分以上　かかる　見込みです。', pauseAfter: 400 },
-        { speaker: 'a', text: 'お急ぎでしたら、東口から　地下鉄を　ご利用ください。振替乗車券は　こちらで　お渡しします。', pauseAfter: 700 },
+        { speaker: 'man', text: 'お客様、ただいま　事故の　影響で、この先の　電車は　到着まで　三十分以上　かかる　見込みです。', pauseAfter: 400 },
+        { speaker: 'man', text: 'お急ぎでしたら、東口から　地下鉄を　ご利用ください。振替乗車券は　こちらで　お渡しします。', pauseAfter: 700 },
         { speaker: 'narrator', text: '駅員は　どうして　地下鉄を　勧めて　いますか。' },
       ],
       options: [
@@ -359,7 +359,7 @@ export const questionBank: Record<Level, Question[]> = {
       type: 'LISTENING', badge: '聴解', itemType: 'Quick response', jpItemType: '即時応答',
       prompt: '聞いて、最も よい 返事を えらんで ください。',
       audio: 'n2-response',
-      narration: [{ speaker: 'a', text: 'ここだけの　話、来月　部署が　変わるらしいんです。' }],
+      narration: [{ speaker: 'man', text: 'ここだけの　話、来月　部署が　変わるらしいんです。' }],
       options: ['えっ、誰にも　言いませんよ。', 'はい、部署は　こちらです。', '来月なら　空いて　います。', 'もう　変わりましたか。'], answer: 0,
       note: 'ここだけの話 = "just between us", so the reply has to acknowledge the confidence. At N2 the 即時応答 hinges on set phrases like this rather than on grammar — a literal reading of the words misses the social move entirely.',
     },
@@ -425,10 +425,10 @@ export const questionBank: Record<Level, Question[]> = {
       audio: 'n1-summary',
       narration: [
         { speaker: 'narrator', text: '気象予報士が　地域イベントに　ついて　話しています。', pauseAfter: 800 },
-        { speaker: 'a', text: '午前中は　強い　雨が　残りますが、昼過ぎには　弱まるでしょう。', pauseAfter: 300 },
-        { speaker: 'a', text: 'ただし、風は　夕方まで　強く、屋外に　大型テントを　設置するのは　危険です。', pauseAfter: 300 },
-        { speaker: 'a', text: '開始時刻を　遅らせるだけでは　十分とは　言えません。', pauseAfter: 300 },
-        { speaker: 'a', text: '来場者の　安全を　考えると、今回は　屋内会場に　切り替えるのが　現実的です。', pauseAfter: 700 },
+        { speaker: 'woman', text: '午前中は　強い　雨が　残りますが、昼過ぎには　弱まるでしょう。', pauseAfter: 300 },
+        { speaker: 'woman', text: 'ただし、風は　夕方まで　強く、屋外に　大型テントを　設置するのは　危険です。', pauseAfter: 300 },
+        { speaker: 'woman', text: '開始時刻を　遅らせるだけでは　十分とは　言えません。', pauseAfter: 300 },
+        { speaker: 'woman', text: '来場者の　安全を　考えると、今回は　屋内会場に　切り替えるのが　現実的です。', pauseAfter: 700 },
         { speaker: 'narrator', text: '気象予報士は　何を　勧めて　いますか。' },
       ],
       options: [
@@ -443,7 +443,7 @@ export const questionBank: Record<Level, Question[]> = {
       type: 'LISTENING', badge: '聴解', itemType: 'Quick response', jpItemType: '即時応答',
       prompt: '聞いて、最も よい 返事を えらんで ください。',
       audio: 'n1-response',
-      narration: [{ speaker: 'a', text: '課長の　あの　言い方は　ないんじゃないですか。'}],
+      narration: [{ speaker: 'woman', text: '課長の　あの　言い方は　ないんじゃないですか。'}],
       options: ['確かに、少し　きつかったですね。', 'はい、課長が　言いました。', '言い方が　わかりません。', 'まだ　言って　いません。'], answer: 0,
       note: '「～はないんじゃないですか」 is criticism phrased as a question, inviting the listener to agree. The reply 確かに aligns with it. Taking the sentence literally as a question about who said what leads straight to (2) — at N1 the 即時応答 items turn almost entirely on tone and implication.',
     },

@@ -1,0 +1,27 @@
+{
+  "_note": "Voices used to pre-render public/audio/*.m4a via the VOICEVOX engine (scripts/generate-audio.mjs --backend=voicevox). The engine runs locally in Docker; nothing is sent to a third party at build time and no key ships to the browser.",
+  "_engine": "VOICEVOX / ヒホ — https://voicevox.hiroshiba.jp/ (engine 0.25.2, voicevox/voicevox_engine:cpu-arm64-ubuntu22.04-latest)",
+  "_credit_required": "Each character below requires its credit string to be shown wherever the audio is published. app/page.tsx renders them in the footer; public/audio/CREDITS.txt repeats them beside the files themselves, which is what passes the obligation on to anyone who redistributes them.",
+  "_commercial": "This app is free and non-commercial, which is what No.7 permits. If it ever carries revenue, No.7 needs prior clearance from No.7製作委員会 (https://voiceseven.com/) or the narrator must be swapped — it is one entry in `voices` below. 青山龍星 is fine for an individual but needs prior confirmation from ななはぴ if a company is involved. 九州そら is cleared for commercial and non-commercial use as-is.",
+  "voices": {
+    "narrator": {
+      "style": "No.7/アナウンス",
+      "credit": "VOICEVOX:No.7",
+      "terms": "https://voiceseven.com/#j0200",
+      "note": "Non-commercial only (doujin sales and streaming revenue are allowed). Reads the 問題 framing lines, never in-script dialogue."
+    },
+    "woman": {
+      "style": "九州そら/ノーマル",
+      "credit": "VOICEVOX:九州そら",
+      "terms": "https://zunko.jp/con_ongen_kiyaku.html",
+      "note": "Commercial and non-commercial use permitted with credit."
+    },
+    "man": {
+      "style": "青山龍星/ノーマル",
+      "credit": "VOICEVOX:青山龍星",
+      "terms": "https://www.virvoxproject.com/voicevoxの利用規約",
+      "note": "Individual use permitted with credit; use involving a company requires prior confirmation from ななはぴ (https://v.seventhh.com/contact/)."
+    }
+  },
+  "_calibration": "Base rates measured over 24 real narration lines (659 morae) at speedScale 1.0 with pause morae subtracted, matching the renderer's own arithmetic: No.7/アナウンス 7.44 morae/s, 九州そら/ノーマル 5.50, 青山龍星/ノーマル 6.92. A single reference sentence is not a sufficient basis — it overstated the two faster voices by ~25%. 九州そら is ~26% slower and her pause morae run ~3x longer, so generate-audio.mjs normalises both per voice, otherwise the woman drags in every dialogue. The engine divides every silence by speedScale, so pause lengths are pre-multiplied by it to come out at the intended absolute duration."
+}

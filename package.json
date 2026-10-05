@@ -11,7 +11,8 @@
     "build:pages": "GITHUB_PAGES=true NEXT_PUBLIC_BASE_PATH=/jlpt-duolingo next build && rm -rf docs && mv out docs && touch docs/.nojekyll",
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern docs",
-    "audio": "node scripts/generate-audio.mjs",
+    "audio": "node scripts/generate-audio.mjs --backend=voicevox",
+    "audio:say": "node scripts/generate-audio.mjs --backend=say",
     "curriculum:audit": "node scripts/audit-curriculum.mjs",
     "audit": "node scripts/audit-bank.mjs"
   },
