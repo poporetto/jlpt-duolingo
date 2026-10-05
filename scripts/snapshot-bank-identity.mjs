@@ -10,6 +10,11 @@
  * into the middle.
  *
  * Run this only to re-baseline deliberately, and say so in the commit message.
+ *
+ * Note for future additions: each generated pool is appended as its own block at
+ * the end of course-data.ts, in order. Growing an earlier block — adding
+ * listening scripts, or grammar inventory points — shifts every pool appended
+ * after it. New content goes in a new final block, not into an existing one.
  */
 import { writeFileSync } from 'node:fs';
 import { questionBank, levels } from '../app/course-data.ts';

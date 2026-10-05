@@ -66,6 +66,16 @@ for (const level of levels) {
     if (q.type === 'GRAMMAR' && q.options.some((o) => o.includes('（') || o.includes('）'))) {
       findings.push([id, 'grammar option contains an inventory disambiguator']);
     }
+    // Both space widths are in use across the bank — prompts tend to use ASCII,
+    // carriers full-width — and either alone is fine. Mixing the two inside one
+    // string is not: the gaps render at different widths mid-sentence. Three
+    // authored options did exactly that.
+    for (const text of [q.prompt, ...(q.options ?? []), ...(q.narration ?? []).map((l) => l.text)]) {
+      const jp = /[ぁ-んァ-ヶ一-鿿]/;
+      const hasAscii = new RegExp(`${jp.source} ${jp.source}`).test(text ?? '');
+      const hasWide = new RegExp(`${jp.source}　${jp.source}`).test(text ?? '');
+      if (hasAscii && hasWide) findings.push([id, 'mixes ASCII and full-width spaces in one string']);
+    }
     if (q.type === 'LISTENING') {
       listening += 1;
       if (!q.narration?.length) findings.push([id, 'listening item with no narration']);

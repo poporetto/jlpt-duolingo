@@ -11,6 +11,16 @@ import { grammarInventory, type GrammarPoint } from './grammar-inventory.ts';
  * appears in the carrier.
  */
 const norm = (point: string) => point.replace(/^[～〜]/, '');
+
+/** Each level already words this 大問 its own way — kana and いちばん いい at N5,
+ *  最も よい from N3 up. Generated items reuse it rather than adding a variant. */
+const PROMPT: Record<Level, string> = {
+  N5: '（　）に いれるのに いちばん いい ものを えらんで ください。',
+  N4: '（　）に 入れるのに いちばん いい ものを えらんで ください。',
+  N3: '（　）に 入れるのに 最も よい ものを えらんで ください。',
+  N2: '（　）に 入れるのに 最も よい ものを えらんで ください。',
+  N1: '（　）に 入れるのに 最も よい ものを えらんで ください。',
+};
 /** What the learner actually sees as an option. */
 const formOf = (g: GrammarPoint) => g.form ?? g.point;
 
@@ -73,7 +83,7 @@ export function grammarQuestions(level: Level, alreadyTested: Set<string>): Ques
 
     items.push({
       type: 'GRAMMAR', badge: '文法', itemType: 'Grammar form', jpItemType: '文の文法1（文法形式の判断）',
-      prompt: '（　）に 入れるのに 最も よい ものを えらんで ください。',
+      prompt: PROMPT[level],
       tokens,
       options: [formOf(entry), ...picked.map(formOf)],
       answer: 0,

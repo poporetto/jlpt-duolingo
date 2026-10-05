@@ -6,6 +6,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "predev": "npm run banks",
     "dev": "vinext dev",
     "build": "vinext build",
     "banks": "node scripts/build-level-banks.mjs",

@@ -854,7 +854,7 @@ export const extraListeningScripts: Record<Level, Script[]> = {
       { speaker: 'man', text: '必要なのは　さらに　多くの　情報ではなく、何を　捨てるかを　決める　基準です。基準の　ない　情報は　迷いを　増やすだけです。', pauseAfter: 700 },
       { speaker: 'narrator', text: '話の　主な　内容は　何ですか。' },
     ],
-    options: ['選択には　何を　捨てるかの　基準が　要る　こと', '情報を　もっと　集める べきだという　こと', '技術の　進歩を　止める べきだという　こと', '選択肢は　多い ほど　よいという　こと'],
+    options: ['選択には　何を　捨てるかの　基準が　要るという　こと', '情報を　もっと　集める　べきだという　こと', '技術の　進歩を　止める　べきだという　こと', '選択肢は　多い　ほど　よいという　こと'],
     note: 'The speaker rejects more information and relocates the need to a criterion for discarding.',
   },
   {
@@ -866,7 +866,7 @@ export const extraListeningScripts: Record<Level, Script[]> = {
       { speaker: 'woman', text: '同じ　面積でも、つながりの　ない　緑地は　生き物の　移動を　支えません。測るべきは　広さではなく　配置です。', pauseAfter: 700 },
       { speaker: 'narrator', text: '話の　主な　内容は　何ですか。' },
     ],
-    options: ['緑地は　面積より　配置が　重要だという　こと', '緑地の　面積を　増やす べきだという　こと', '都市に　緑地は　不要だという　こと', '生き物の　調査を　やめる べきだという　こと'],
+    options: ['緑地は　面積より　配置が　重要だという　こと', '緑地の　面積を　増やす　べきだという　こと', '都市に　緑地は　不要だという　こと', '生き物の　調査を　やめる　べきだという　こと'],
     note: 'The common metric is named and then replaced: the claim is about arrangement, not area.',
   },
   {
@@ -878,7 +878,7 @@ export const extraListeningScripts: Record<Level, Script[]> = {
       { speaker: 'man', text: '実際に　失敗した　人が　その後　どう　扱われたか。社員が　見ているのは　方針ではなく　その　一点です。', pauseAfter: 700 },
       { speaker: 'narrator', text: '話の　主な　内容は　何ですか。' },
     ],
-    options: ['方針より　失敗した　人の　扱いが　見られて　いる　こと', '失敗を　責める べきだという　こと', '方針を　掲げる べきだという　こと', '挑戦は　避ける べきだという　こと'],
+    options: ['社員は　方針より　失敗した　人の　扱いを　見て　いるという　こと', '失敗は　責める　べきだという　こと', '方針を　掲げれば　足りるという　こと', '挑戦は　避ける　べきだという　こと'],
     note: 'The stated policy is contrasted with the treatment that actually signals it.',
   },
   {
