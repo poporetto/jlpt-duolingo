@@ -35,6 +35,21 @@ export const readings = [
     requires: 'チャク',
     why: '〜分着 → ぷんちゃく, misread as ぷんぎ',
   },
+  {
+    // 異音 is split into い + おと. It is the subject of an N1 task item, so the
+    // whole dialogue is about a word the learner would not recognise spoken.
+    pattern: /異音/g,
+    replace: () => 'いおん',
+    requires: 'イオン',
+    why: '異音 → いおん, misread as いおと',
+  },
+  {
+    // 市 here is いち (a market), not し (a city).
+    pattern: /古本市/g,
+    replace: () => '古本いち',
+    requires: 'イチ',
+    why: '古本市 → ふるほんいち, misread as ふるほんし',
+  },
 ];
 
 /** Rewrite one line for synthesis. Returns the text plus the kana each rewrite must produce. */

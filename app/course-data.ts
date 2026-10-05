@@ -1,6 +1,6 @@
 import { expandQuestionBank } from './expanded-bank.ts';
 import { kanjiQuestions } from './kanji-questions.ts';
-import { listeningQuestions } from './listening-questions.ts';
+import { listeningQuestions, extraListeningQuestions } from './listening-questions.ts';
 import { pictureForText } from './scenes.ts';
 import { readingQuestions, textGrammarQuestions } from './reading-questions.ts';
 import { usageQuestions, paraphraseQuestions, contextualVocabularyQuestions } from './vocabulary-questions.ts';
@@ -484,6 +484,12 @@ for (const level of levels) {
     ...usage,
     ...paraphrase,
   ];
+}
+
+// Listening scripts authored after the original 234, appended at the end.
+for (const level of levels) {
+  const extra = extraListeningQuestions(level);
+  if (extra.length) questionBank[level] = [...questionBank[level], ...extra];
 }
 
 // Generated 文法形式の判断 for the inventory points no authored item covers.
