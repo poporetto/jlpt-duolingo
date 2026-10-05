@@ -7,6 +7,8 @@
  */
 import { existsSync, readdirSync } from 'node:fs';
 import { questionBank, levels } from '../app/course-data.ts';
+import { identityOf } from './bank-identity.mjs';
+import frozen from './bank-identity.json' with { type: 'json' };
 
 /** jlpt.jp 試験科目と問題の構成 — which 大問 appear at which level. */
 const OFFICIAL = {
@@ -157,6 +159,21 @@ for (const [type, at] of Object.entries(OFFICIAL)) {
 }
 if (images.size > IMAGE_BUDGET) findings.push(['images', `${images.size} distinct images exceeds the ${IMAGE_BUDGET} いらすとや budget`]);
 if (scripts.size !== listening) findings.push(['listening', `${listening} items but only ${scripts.size} distinct scripts`]);
+
+// Saved progress is keyed by a question's index in its level's bank, so an item
+// inserted anywhere but the end re-points every later index at a different
+// question and silently corrupts every existing profile and save file. New
+// content is appended; this check fails if an existing index ever changes hands.
+for (const level of levels) {
+  const before = frozen[level] ?? [];
+  const now = questionBank[level].map(identityOf);
+  if (now.length < before.length) {
+    findings.push([level, `bank shrank from ${before.length} to ${now.length} items — saved progress is index-keyed`]);
+    continue;
+  }
+  const moved = before.reduce((n, id, i) => n + (now[i] === id ? 0 : 1), 0);
+  if (moved) findings.push([level, `${moved} existing question(s) changed index — append new items instead (re-baseline with snapshot-bank-identity.mjs if deliberate)`]);
+}
 
 const total = levels.reduce((a, l) => a + questionBank[l].length, 0);
 console.log(`items ${total} (${seen.size} unique) | listening ${listening} with ${scripts.size} scripts | images ${images.size}/${IMAGE_BUDGET}`);
