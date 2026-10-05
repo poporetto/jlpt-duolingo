@@ -3,7 +3,8 @@
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { levelDetails, levels, questionBank, type Level, type Question, type QuestionType, type Token } from './course-data';
+import { levelDetails, levels, type Level, type Question, type QuestionType, type Token } from './levels';
+import { bankSizes, loadBank } from './bank-loader';
 import { playNarration, playSfx, rankJapaneseVoices, setSfxEnabled, stopNarration, unlockAudio } from './audio';
 import furiganaReadings from './furigana-map.json' with { type: 'json' };
 
@@ -248,7 +249,14 @@ export default function Home() {
   // read in, or the first render's defaults overwrite the user's preferences.
   const hydrated = useRef(false);
 
-  const bank = questionBank[level];
+  // One level's bank at a time. Importing the whole course model would put all
+  // five banks in the first paint; the learner needs the one they are studying.
+  const [bank, setBank] = useState<Question[]>([]);
+  useEffect(() => {
+    let live = true;
+    loadBank(level).then((loaded) => { if (live) setBank(loaded); });
+    return () => { live = false; };
+  }, [level]);
   const current: Question | undefined = bank[order[step]];
   const details = levelDetails[level];
   const mascot = levelMascots[level];
@@ -657,12 +665,19 @@ export default function Home() {
   const levelCompletedStages = levelPathStages.filter((stage) => stage.questionIndices.length >= MIN_UNIT_QUESTIONS && stage.questionIndices.every((index) => levelMastered.has(index))).map((stage) => stage.pathId);
   const masteredCount = bank.reduce((n, _, index) => n + ((masteryScores[level]?.[String(index)] ?? 0) >= 2 ? 1 : 0), 0);
   const savedLevels = levels.map((item) => {
-    const size = questionBank[item].length;
+    const size = bankSizes[item] ?? 0;
     const done = Object.values(masteryScores[item] ?? {}).filter((score) => score >= 2).length;
     return { level: item, done, size, percent: size ? Math.round((done / size) * 100) : 0, xp: xpByLevel[item] ?? 0 };
   });
   const dailyRunsToday = dailyLog[level]?.day === today() ? dailyLog[level]!.runs : 0;
-  const curriculumComplete = bank.length > 0 && bank.every((_, index) => (masteryScores[level]?.[String(index)] ?? 0) >= 2);
+  // Unlocking the mocks once needed *every* item at mastery 2 simultaneously. That
+  // was already demanding; after the vocabulary pool it means 5,920 correct answers
+  // at N1, with any single miss resetting that item, so the gate was effectively
+  // unreachable. A share of the bank keeps it a real milestone without making it
+  // a war of attrition against spaced repetition.
+  const MOCK_UNLOCK_SHARE = 0.9;
+  const mockUnlockTarget = Math.ceil(bank.length * MOCK_UNLOCK_SHARE);
+  const curriculumComplete = bank.length > 0 && masteredCount >= mockUnlockTarget;
   const skillProgress = skills.map((skill) => {
     const relevantStages = levelPathStages.filter((stage) => stage.type === skill.type);
     const relevantQuestions = bank.map((question, index) => ({ question, index })).filter(({ question }) => question.type === skill.type);
@@ -777,7 +792,7 @@ export default function Home() {
             })}
             <section className={`mock-gate ${curriculumComplete ? 'unlocked' : ''}`} aria-label={`${level} full mock tests`}>
               <span className="mock-seal">{curriculumComplete ? '試' : '鍵'}</span>
-              <div className="mock-copy"><small>FINAL CHECKPOINT</small><h2>Full {level} mock tests</h2><p>{curriculumComplete ? 'Your curriculum is mastered. Test every official item family without changing lesson mastery.' : `Master all ${bank.length} curriculum questions twice across separate attempts to unlock three complete mixed mock forms.`}</p></div>
+              <div className="mock-copy"><small>FINAL CHECKPOINT</small><h2>Full {level} mock tests</h2><p>{curriculumComplete ? 'You have mastered enough of the curriculum. Test every official item family without changing lesson mastery.' : `Master ${mockUnlockTarget} of the ${bank.length} curriculum questions twice across separate attempts to unlock three complete mixed mock forms — ${masteredCount} so far.`}</p></div>
               <div className="mock-forms">{[1, 2, 3].map((form) => {
                 const result = mockResults[level]?.[`form-${form}`];
                 return <button key={form} disabled={!curriculumComplete} onClick={() => openMock(form)}><span>Form {form}</span><b>{result ? `${result.correct}/${result.total}` : curriculumComplete ? 'Start test' : 'Locked'}</b></button>;

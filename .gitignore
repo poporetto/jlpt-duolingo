@@ -41,3 +41,7 @@ next-env.d.ts
 .audio-tmp/
 *.tsbuildinfo
 .data-cache/
+
+# Per-level banks are generated from course-data.ts by scripts/build-level-banks.mjs.
+# sizes.json is committed because the profile screen imports it statically.
+app/banks/N*.json
