@@ -9,6 +9,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { questionBank, levels } from '../app/course-data.ts';
 import { identityOf } from './bank-identity.mjs';
 import frozen from './bank-identity.json' with { type: 'json' };
+import { grammarInventory } from '../app/grammar-inventory.ts';
 
 /** jlpt.jp 試験科目と問題の構成 — which 大問 appear at which level. */
 const OFFICIAL = {
@@ -58,6 +59,12 @@ for (const level of levels) {
       images.add(q.image);
       if (!existsSync(`public${q.image}`)) findings.push([id, `image file missing: ${q.image}`]);
       if (!q.imageAlt) findings.push([id, 'image without alt text']);
+    }
+    // The grammar inventory disambiguates a few labels (で（場所・手段）) so two
+    // uses of one particle can be separate points. That label is bookkeeping and
+    // must never reach the learner as an option.
+    if (q.type === 'GRAMMAR' && q.options.some((o) => o.includes('（') || o.includes('）'))) {
+      findings.push([id, 'grammar option contains an inventory disambiguator']);
     }
     if (q.type === 'LISTENING') {
       listening += 1;
@@ -173,6 +180,19 @@ for (const level of levels) {
   }
   const moved = before.reduce((n, id, i) => n + (now[i] === id ? 0 : 1), 0);
   if (moved) findings.push([level, `${moved} existing question(s) changed index — append new items instead (re-baseline with snapshot-bank-identity.mjs if deliberate)`]);
+}
+
+// Grammar has no official list, so app/grammar-inventory.ts is the committed
+// denominator (a community estimate, like the kanji and vocabulary lists). This
+// reports what share of it the bank actually tests, and names what is missing.
+for (const level of levels) {
+  const inventory = grammarInventory[level] ?? [];
+  if (!inventory.length) continue;
+  const norm = (point) => point.replace(/^[～〜]/, '');
+  const tested = new Set();
+  for (const q of questionBank[level]) if (q.itemType === 'Grammar form') tested.add(norm(q.options[q.answer ?? 0]));
+  const missing = inventory.filter((g) => ![g.form ?? g.point, g.point, ...(g.aliases ?? [])].some((a) => tested.has(norm(a))));
+  if (missing.length) findings.push([level, `${missing.length} inventory grammar point(s) untested, e.g. ${missing.slice(0, 3).map((g) => g.point).join(', ')}`]);
 }
 
 const total = levels.reduce((a, l) => a + questionBank[l].length, 0);

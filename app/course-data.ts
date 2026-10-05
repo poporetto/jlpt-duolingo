@@ -4,6 +4,7 @@ import { listeningQuestions } from './listening-questions.ts';
 import { pictureForText } from './scenes.ts';
 import { readingQuestions, textGrammarQuestions } from './reading-questions.ts';
 import { usageQuestions, paraphraseQuestions, contextualVocabularyQuestions } from './vocabulary-questions.ts';
+import { grammarQuestions, coveredPoints } from './grammar-questions.ts';
 import { levels, type Level, type Question } from './levels.ts';
 
 export * from './levels.ts';
@@ -483,6 +484,12 @@ for (const level of levels) {
     ...usage,
     ...paraphrase,
   ];
+}
+
+// Generated 文法形式の判断 for the inventory points no authored item covers.
+for (const level of levels) {
+  const generated = grammarQuestions(level, coveredPoints(questionBank[level]));
+  if (generated.length) questionBank[level] = [...questionBank[level], ...generated];
 }
 
 // Generated 文脈規定, appended last and never spliced into the middle.
