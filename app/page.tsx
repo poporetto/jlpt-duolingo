@@ -637,7 +637,10 @@ export default function Home() {
   });
 
   const totalXp = Object.values(xpByLevel).reduce((a, b) => a + b, 0);
-  const levelMastered = Object.entries(masteryScores[level] ?? {}).filter(([, score]) => score >= 2).map(([index]) => Number(index));
+  // A Set, not an array: this is membership-tested once per question per stage on
+  // every render, so with a few thousand items per level the linear .includes
+  // scan turned the pathway into quadratic work.
+  const levelMastered = new Set(Object.entries(masteryScores[level] ?? {}).filter(([, score]) => score >= 2).map(([index]) => Number(index)));
   const levelCurriculum = curriculum.filter((stage) => stage.levels.includes(level));
   const pathTypePriority: Record<QuestionType, number> = { VOCABULARY: 0, GRAMMAR: 1, KANJI: 2, READING: 3, LISTENING: 4 };
   const levelPathStages = levelCurriculum.flatMap((stage) => {
@@ -651,7 +654,7 @@ export default function Home() {
     const progressB = (b.part + 0.5) / b.parts;
     return progressA - progressB || pathTypePriority[a.type] - pathTypePriority[b.type];
   });
-  const levelCompletedStages = levelPathStages.filter((stage) => stage.questionIndices.length >= MIN_UNIT_QUESTIONS && stage.questionIndices.every((index) => levelMastered.includes(index))).map((stage) => stage.pathId);
+  const levelCompletedStages = levelPathStages.filter((stage) => stage.questionIndices.length >= MIN_UNIT_QUESTIONS && stage.questionIndices.every((index) => levelMastered.has(index))).map((stage) => stage.pathId);
   const masteredCount = bank.reduce((n, _, index) => n + ((masteryScores[level]?.[String(index)] ?? 0) >= 2 ? 1 : 0), 0);
   const savedLevels = levels.map((item) => {
     const size = questionBank[item].length;
@@ -665,7 +668,7 @@ export default function Home() {
     const relevantQuestions = bank.map((question, index) => ({ question, index })).filter(({ question }) => question.type === skill.type);
     const total = relevantStages.length;
     const done = relevantStages.filter((stage) => levelCompletedStages.includes(stage.pathId)).length;
-    const mastered = relevantQuestions.filter(({ index }) => levelMastered.includes(index)).length;
+    const mastered = relevantQuestions.filter(({ index }) => levelMastered.has(index)).length;
     return { ...skill, total, done, percent: relevantQuestions.length ? Math.round((mastered / relevantQuestions.length) * 100) : 0 };
   });
   // Kanji can have far more individual items than the other sections. Treat all
@@ -727,7 +730,7 @@ export default function Home() {
             </div>
             <div className="overall-card">
               <div className="progress-ring" style={{ '--progress': `${overallProgress * 3.6}deg` } as React.CSSProperties}><span><b>{overallProgress}%</b><small>mastered</small></span></div>
-              <div><small>BALANCED SKILL PROGRESS</small><b>{levelCompletedStages.length} of {levelPathStages.length} stages</b><p>Grammar, kanji, vocabulary, reading and listening count equally • {levelMastered.length}/{bank.length} items mastered{levelMissed.length ? ` • ${levelMissed.length} to review` : ''}</p></div>
+              <div><small>BALANCED SKILL PROGRESS</small><b>{levelCompletedStages.length} of {levelPathStages.length} stages</b><p>Grammar, kanji, vocabulary, reading and listening count equally • {levelMastered.size}/{bank.length} items mastered{levelMissed.length ? ` • ${levelMissed.length} to review` : ''}</p></div>
             </div>
           </div>
         </div>
@@ -917,7 +920,7 @@ export default function Home() {
         </div>
       </div>}
 
-      <footer>Curriculum follows the <a href="https://www.jlpt.jp/e/guideline/testsections.html" target="_blank" rel="noreferrer">official JLPT test-item composition</a> • Original Kuma level mascots • Question illustrations © <a href="https://www.irasutoya.com/" target="_blank" rel="noreferrer">いらすとや</a> • <span>Sources:</span> <a href="https://www.irasutoya.com/2014/06/blog-post_9691.html" target="_blank" rel="noreferrer">station</a>, <a href="https://www.irasutoya.com/2018/04/blog-post_59.html" target="_blank" rel="noreferrer">meeting</a>, <a href="https://www.irasutoya.com/2017/11/blog-post_639.html" target="_blank" rel="noreferrer">shopping</a>, <a href="https://www.irasutoya.com/2015/01/blog-post_8.html" target="_blank" rel="noreferrer">weather</a> • Listening audio synthesised with <a href="https://voicevox.hiroshiba.jp/" target="_blank" rel="noreferrer">VOICEVOX</a>: <span>VOICEVOX:No.7</span>, <span>VOICEVOX:九州そら</span>, <span>VOICEVOX:青山龍星</span> • Kanji &amp; vocabulary data from <a href="http://www.edrdg.org/wiki/index.php/KANJIDIC_Project" target="_blank" rel="noreferrer">KANJIDIC</a> and <a href="https://www.edrdg.org/jmdict/j_jmdict.html" target="_blank" rel="noreferrer">JMdict</a> (© EDRDG, CC BY-SA 4.0) • Example sentences from <a href="https://tatoeba.org/" target="_blank" rel="noreferrer">Tatoeba</a> (CC BY 2.0 FR) • JLPT level assignments from <a href="http://www.tanos.co.uk/jlpt/" target="_blank" rel="noreferrer">Jonathan Waller’s JLPT Resources</a></footer>
+      <footer>Curriculum follows the <a href="https://www.jlpt.jp/e/guideline/testsections.html" target="_blank" rel="noreferrer">official JLPT test-item composition</a> • Original Kuma level mascots • Question illustrations © <a href="https://www.irasutoya.com/" target="_blank" rel="noreferrer">いらすとや</a> • <span>Sources:</span> <a href="https://www.irasutoya.com/2014/06/blog-post_9691.html" target="_blank" rel="noreferrer">station</a>, <a href="https://www.irasutoya.com/2018/04/blog-post_59.html" target="_blank" rel="noreferrer">meeting</a>, <a href="https://www.irasutoya.com/2017/11/blog-post_639.html" target="_blank" rel="noreferrer">shopping</a>, <a href="https://www.irasutoya.com/2015/01/blog-post_8.html" target="_blank" rel="noreferrer">weather</a> • Listening audio synthesised with <a href="https://voicevox.hiroshiba.jp/" target="_blank" rel="noreferrer">VOICEVOX</a>: <span>VOICEVOX:No.7</span>, <span>VOICEVOX:九州そら</span>, <span>VOICEVOX:青山龍星</span> • Kanji &amp; vocabulary data from <a href="http://www.edrdg.org/wiki/index.php/KANJIDIC_Project" target="_blank" rel="noreferrer">KANJIDIC</a> and <a href="https://www.edrdg.org/jmdict/j_jmdict.html" target="_blank" rel="noreferrer">JMdict</a> (© EDRDG, CC BY-SA 4.0) • Example sentences from <a href="https://tatoeba.org/" target="_blank" rel="noreferrer">Tatoeba</a> (CC BY 2.0 FR) • JLPT level assignments from <a href="http://www.tanos.co.uk/jlpt/" target="_blank" rel="noreferrer">Jonathan Waller’s JLPT Resources</a>, via <a href="https://github.com/Bluskyo/JLPT_Vocabulary" target="_blank" rel="noreferrer">Bluskyo/JLPT_Vocabulary</a> (MIT)</footer>
     </main>
   );
 }

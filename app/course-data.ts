@@ -3,7 +3,7 @@ import { kanjiQuestions } from './kanji-questions.ts';
 import { listeningQuestions } from './listening-questions.ts';
 import { pictureForText } from './scenes.ts';
 import { readingQuestions, textGrammarQuestions } from './reading-questions.ts';
-import { usageQuestions, paraphraseQuestions } from './vocabulary-questions.ts';
+import { usageQuestions, paraphraseQuestions, contextualVocabularyQuestions } from './vocabulary-questions.ts';
 
 export type Level = 'N1' | 'N2' | 'N3' | 'N4' | 'N5';
 
@@ -529,6 +529,15 @@ for (const level of levels) {
     ...usage,
     ...paraphrase,
   ];
+}
+
+// Generated 文脈規定, appended last and never spliced into the middle.
+// Saved progress (mastery, missed, daily-seen) is keyed by a question's index in
+// its level's bank, so inserting anywhere else would re-point every later index
+// at a different question. scripts/audit-bank.mjs gates this.
+for (const level of levels) {
+  const generated = contextualVocabularyQuestions(level);
+  if (generated.length) questionBank[level] = [...questionBank[level], ...generated];
 }
 
 // Illustrations for the text sections. The real 問題用紙 prints no picture on
