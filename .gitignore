@@ -44,4 +44,7 @@ next-env.d.ts
 
 # Per-level banks are generated from course-data.ts by scripts/build-level-banks.mjs.
 # sizes.json is committed because the profile screen imports it statically.
-app/banks/N*.json
+# The furigana annotations (*.ruby.json) are committed: building them needs the
+# JMdict cache, which CI does not have.
+app/banks/N[1-5].json
+.probe/

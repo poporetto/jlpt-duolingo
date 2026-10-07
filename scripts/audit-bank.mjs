@@ -11,6 +11,8 @@ import { identityOf } from './bank-identity.mjs';
 import frozen from './bank-identity.json' with { type: 'json' };
 import { grammarInventory } from '../app/grammar-inventory.ts';
 import { grammarLessons } from '../app/grammar-lessons.ts';
+import { rubyStringsOf, studyChunks, uniqueInOrder, UI_RUBY_STRINGS } from '../app/ruby.ts';
+import { readFileSync as readRuby } from 'node:fs';
 
 /** jlpt.jp 試験科目と問題の構成 — which 大問 appear at which level. */
 const OFFICIAL = {
@@ -251,6 +253,22 @@ for (const level of levels) {
     const missing = grammarInventory[level].filter((g) => !seen.has(g.point));
     if (missing.length) findings.push([`${level} grammar lessons`, `${missing.length} inventory point(s) without a lesson, e.g. ${missing.slice(0, 4).map((g) => g.point).join(', ')}`]);
   }
+}
+
+// Furigana annotations are committed and aligned by position to the strings
+// the app renders. If text changes without re-running scripts/build-ruby.mjs,
+// every later string would get its neighbour's ruby — so a count mismatch fails.
+for (const level of levels) {
+  const strings = uniqueInOrder([...UI_RUBY_STRINGS, ...questionBank[level].flatMap(rubyStringsOf)]);
+  let encoded = [];
+  try { encoded = JSON.parse(readRuby(`app/banks/${level}.ruby.json`, 'utf8')); } catch { /* missing */ }
+  if (encoded.length !== strings.length) findings.push([`${level} furigana`, `annotations cover ${encoded.length} strings but the bank renders ${strings.length} — run npm run banks`]);
+}
+for (const [level, units] of Object.entries(grammarLessons)) {
+  const strings = uniqueInOrder(units.flatMap((u) => u.points.flatMap((p) => [...studyChunks(p.explanation), ...studyChunks(p.compare ?? ''), ...p.examples.flatMap((e) => studyChunks(e.jp))])));
+  let encoded = [];
+  try { encoded = JSON.parse(readRuby(`app/banks/lessons-${level}.ruby.json`, 'utf8')); } catch { /* missing */ }
+  if (encoded.length !== strings.length) findings.push([`${level} lesson furigana`, `annotations cover ${encoded.length} strings but the lessons render ${strings.length} — run npm run banks`]);
 }
 
 const total = levels.reduce((a, l) => a + questionBank[l].length, 0);

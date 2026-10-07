@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import type { Level } from './levels';
 import type { GrammarUnit } from './grammar-lessons';
+import { registerRuby, studyChunks, uniqueInOrder } from './ruby';
 
 type FuriganaComponent = ComponentType<{ text: string; furigana: boolean }>;
 
@@ -20,13 +21,18 @@ export type StudyData = {
 
 /** Loads the lessons and the inventory on demand, so neither weighs on first paint. */
 export async function loadGrammarUnits(level: Level): Promise<StudyData> {
-  const [lessons, inventory] = await Promise.all([import('./grammar-lessons'), import('./grammar-inventory')]);
+  const [lessons, inventory, ruby] = await Promise.all([import('./grammar-lessons'), import('./grammar-inventory'), import(`./banks/lessons-${level}.ruby.json`)]);
+  const units = lessons.grammarLessons[level] ?? [];
+  registerRuby(
+    uniqueInOrder(units.flatMap((u) => u.points.flatMap((p) => [...studyChunks(p.explanation), ...studyChunks(p.compare ?? ''), ...p.examples.flatMap((e) => studyChunks(e.jp))]))),
+    (ruby.default ?? ruby) as string[],
+  );
   const norm = (s: string) => s.replace(/^[～〜]/, '').replace(/[　 ]/g, '');
   const accepted: Record<string, string[]> = {};
   for (const g of inventory.grammarInventory[level] ?? []) {
     accepted[g.point] = [g.form, g.point, ...(g.aliases ?? [])].filter((x): x is string => !!x).map(norm);
   }
-  return { units: lessons.grammarLessons[level] ?? [], legend: lessons.CONNECTION_LEGEND, accepted };
+  return { units, legend: lessons.CONNECTION_LEGEND, accepted };
 }
 
 /**

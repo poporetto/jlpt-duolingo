@@ -7,7 +7,7 @@ import { levelDetails, levels, type Level, type Question, type QuestionType, typ
 import { bankSizes, loadBank } from './bank-loader';
 import { GrammarStudy, STUDY_LEVELS, loadGrammarUnits, type StudyData } from './grammar-study';
 import { playNarration, playSfx, rankJapaneseVoices, setSfxEnabled, stopNarration, unlockAudio } from './audio';
-import furiganaReadings from './furigana-map.json' with { type: 'json' };
+import { rubyFor } from './ruby';
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 const asset = (path: string) => `${BASE_PATH}${path}`;
@@ -154,48 +154,22 @@ const permutation = (length: number, seed: number) => {
   return order;
 };
 
-const readingsByFirst = new Map<string, [string, string][]>();
-for (const [word, reading] of Object.entries(furiganaReadings)) {
-  const first = [...word][0];
-  const group = readingsByFirst.get(first) ?? [];
-  group.push([word, reading]);
-  readingsByFirst.set(first, group);
-}
-for (const group of readingsByFirst.values()) group.sort(([a], [b]) => b.length - a.length);
-
-/** Add ruby to ordinary Japanese strings. The bank also contains explicit Token
- * objects; those win when present because they encode the intended contextual
- * reading and, importantly, whether a word is the item under test. */
+/**
+ * Ruby for an ordinary Japanese string, from the annotations computed at build
+ * time (app/ruby.ts). The bank also contains explicit Token objects; those win
+ * when present because they encode whether a word is the item under test.
+ */
 function FuriganaText({ text, furigana }: { text: string; furigana: boolean }) {
-  if (!furigana || !/\p{Script=Han}/u.test(text)) return <span className="furigana-text">{text}</span>;
-
+  const segs = furigana ? rubyFor(text) : undefined;
+  if (!segs?.length) return <span className="furigana-text">{text}</span>;
   const pieces: ReactNode[] = [];
-  let plain = '';
-  let offset = 0;
-  const flush = () => {
-    if (!plain) return;
-    pieces.push(<span key={`plain-${offset}-${pieces.length}`}>{plain}</span>);
-    plain = '';
-  };
-
-  while (offset < text.length) {
-    const match = (readingsByFirst.get(text[offset]) ?? []).find(([word]) => text.startsWith(word, offset));
-    if (!match) {
-      plain += text[offset];
-      offset += 1;
-      continue;
-    }
-    flush();
-    const [word, matched] = match;
-    // 人 after a number is the counter にん (三十人), not ひと.
-    const reading = word === '人' && /[一二三四五六七八九十百千万何数０-９0-9]/.test(text[offset - 1] ?? '') ? 'にん' : matched;
-    // An empty reading marks a form whose reading depends on context (止めて is
-    // とめて or やめて): print it bare rather than guess.
-    if (reading) pieces.push(<ruby key={`ruby-${offset}`}>{word}<rt>{reading}</rt></ruby>);
-    else pieces.push(<span key={`bare-${offset}`}>{word}</span>);
-    offset += word.length;
+  let pos = 0;
+  for (const [start, length, reading] of segs) {
+    if (start > pos) pieces.push(<span key={`t-${pos}`}>{text.slice(pos, start)}</span>);
+    pieces.push(<ruby key={`r-${start}`}>{text.slice(start, start + length)}<rt>{reading}</rt></ruby>);
+    pos = start + length;
   }
-  flush();
+  if (pos < text.length) pieces.push(<span key={`t-${pos}`}>{text.slice(pos)}</span>);
   // One element, not a fragment: a bare fragment's children each become their own
   // grid item inside a grid parent, which stacked the option explanations on top
   // of one another instead of laying them out in a column.
