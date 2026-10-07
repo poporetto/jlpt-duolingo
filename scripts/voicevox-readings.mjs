@@ -44,6 +44,21 @@ export const readings = [
     why: '異音 → いおん, misread as いおと',
   },
   {
+    // 何とか is なんとか; the engine reads なにとか.
+    pattern: /何とか/g,
+    replace: () => 'なんとか',
+    requires: 'ナントカ',
+    why: '何とか → なんとか, misread as なにとか',
+  },
+  {
+    // 何で before a verb of coming or going asks the means (なにで). The engine
+    // reads なんで, which means "why" — and the options are bus, bike, train.
+    pattern: new RegExp(`何で(?=${S}(?:会社|学校|ここ|駅|うち|家)?${S}[にへ]?${S}(?:来|行|帰|通|き|い))`, 'g'),
+    replace: () => 'なにで',
+    requires: 'ナニデ',
+    why: '何で (means) → なにで, misread as なんで (why)',
+  },
+  {
     // 市 here is いち (a market), not し (a city).
     pattern: /古本市/g,
     replace: () => '古本いち',

@@ -1,6 +1,6 @@
 import { expandQuestionBank } from './expanded-bank.ts';
 import { kanjiQuestions, kanjiExtraQuestions } from './kanji-questions.ts';
-import { listeningQuestions, extraListeningQuestions } from './listening-questions.ts';
+import { listeningQuestions, extraListeningQuestions, extraListeningQuestions2 } from './listening-questions.ts';
 import { pictureForText } from './scenes.ts';
 import { readingQuestions, textGrammarQuestions } from './reading-questions.ts';
 import { usageQuestions, paraphraseQuestions, contextualVocabularyQuestions, inflectedVocabularyQuestions, corpusVocabularyQuestions } from './vocabulary-questions.ts';
@@ -526,6 +526,12 @@ for (const level of levels) {
 for (const level of levels) {
   const corpus = corpusVocabularyQuestions(level);
   if (corpus.length) questionBank[level] = [...questionBank[level], ...corpus];
+}
+
+// The second batch of authored listening scripts.
+for (const level of levels) {
+  const batch = extraListeningQuestions2(level);
+  if (batch.length) questionBank[level] = [...questionBank[level], ...batch];
 }
 
 // Illustrations for the text sections. The real 問題用紙 prints no picture on
