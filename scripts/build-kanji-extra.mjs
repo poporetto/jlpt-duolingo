@@ -181,7 +181,6 @@ const report = [];
 for (const level of [5, 4, 3, 2, 1]) {
   const name = `N${level}`;
   const missing = [...levelOf].filter(([ch, l]) => l === level && !taught[name].has(ch)).map(([ch]) => ch);
-  let reached = 0;
   for (const ch of missing) {
     // Prefer short words whose other kanji are no harder than this level.
     const options = (candidates.get(ch) ?? [])
@@ -200,7 +199,6 @@ for (const level of [5, 4, 3, 2, 1]) {
       usedSentences[name].add(carrier);
       out[name].push({ word: option.word, reading: option.reading, distractors, sentence: carrier });
       for (const x of option.word) taught[name].add(x);
-      reached += 1;
       break;
     }
   }
