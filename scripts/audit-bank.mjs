@@ -10,6 +10,7 @@ import { questionBank, levels } from '../app/course-data.ts';
 import { identityOf } from './bank-identity.mjs';
 import frozen from './bank-identity.json' with { type: 'json' };
 import { grammarInventory } from '../app/grammar-inventory.ts';
+import { grammarLessons } from '../app/grammar-lessons.ts';
 
 /** jlpt.jp 試験科目と問題の構成 — which 大問 appear at which level. */
 const OFFICIAL = {
@@ -203,6 +204,53 @@ for (const level of levels) {
   for (const q of questionBank[level]) if (q.itemType === 'Grammar form') tested.add(norm(q.options[q.answer ?? 0]));
   const missing = inventory.filter((g) => ![g.form ?? g.point, g.point, ...(g.aliases ?? [])].some((a) => tested.has(norm(a))));
   if (missing.length) findings.push([level, `${missing.length} inventory grammar point(s) untested, e.g. ${missing.slice(0, 3).map((g) => g.point).join(', ')}`]);
+}
+
+// Grammar study material. Learners memorise these, so the checks are strict:
+// every example marks its grammar span with ［…］ and the span must be the point
+// itself (or an alias or a declared form); text must be clean Japanese or clean
+// English; and no example may contain the drill carrier for the same point, or
+// "practise this unit" would only test recall of the example just studied.
+{
+  const BAD = /[A-Za-zＡ-Ｚａ-ｚ가-힯Ѐ-ӿ]/;
+  const jpChar = /[ぁ-んァ-ヶ一-鿿]/;
+  const stripRuby = (t) => t.replace(/\{([^|}]+)\|[^}]+\}/g, '$1');
+  for (const level of levels) {
+    const units = grammarLessons[level];
+    if (!units) continue;
+    const inventory = new Map(grammarInventory[level].map((g) => [g.point, g]));
+    const carriers = questionBank[level]
+      .filter((q) => q.itemType === 'Grammar form')
+      .map((q) => (q.tokens ?? []).map((t) => (typeof t === 'string' ? t : t.kanji)).join('').replace('（　　）', q.options[q.answer ?? 0]).replace(/[　 ]/g, ''));
+    const seen = new Set();
+    for (const unit of units) for (const lesson of unit.points) {
+      const where = `${level} lesson ${lesson.point}`;
+      const inv = inventory.get(lesson.point);
+      if (!inv) { findings.push([where, 'lesson for a point not in the grammar inventory']); continue; }
+      if (seen.has(lesson.point)) findings.push([where, 'point has two lessons']);
+      seen.add(lesson.point);
+      const accepted = new Set([lesson.point, inv.form, ...(inv.aliases ?? []), ...(lesson.forms ?? [])].filter(Boolean).map((f) => f.replace(/^[～〜]/, '').replace(/[　 ]/g, '')));
+      if (lesson.examples.length < 2) findings.push([where, 'fewer than two examples']);
+      for (const field of [lesson.meaning, lesson.explanation, lesson.compare ?? '']) {
+        if (/[ぁ-んァ-ヶ]/.test(field.replace(/\{[^}]*\}/g, '').replace(/～\S*|[ぁ-んァ-ヶ一-鿿ー・、。（）]+/g, ''))) findings.push([where, 'stray Japanese in English text']);
+      }
+      for (const ex of lesson.examples) {
+        const spans = [...ex.jp.matchAll(/［([^］]+)］/g)].map((m) => m[1]);
+        if (spans.length !== 1) { findings.push([where, `example needs exactly one ［…］ span: ${ex.jp}`]); continue; }
+        if (!accepted.has(stripRuby(spans[0]).replace(/[　 ]/g, ''))) findings.push([where, `span 「${spans[0]}」 is not the point or a declared form`]);
+        const plain = stripRuby(ex.jp).replace(/[［］]/g, '');
+        if (BAD.test(plain)) findings.push([where, `non-Japanese character in example: ${plain}`]);
+        if (new RegExp(`${jpChar.source} ${jpChar.source}`).test(plain)) findings.push([where, 'ASCII space in example']);
+        if (/[ぁ-んァ-ヶ一-鿿]/.test(ex.en)) findings.push([where, 'Japanese in translation']);
+        if (!ex.en.trim()) findings.push([where, 'missing translation']);
+        const flat = plain.replace(/[　 ]/g, '');
+        if (carriers.some((c) => c && (flat.includes(c) || c.includes(flat)))) findings.push([where, 'example repeats the drill carrier']);
+      }
+    }
+    // Once a level has lessons, every inventory point needs one.
+    const missing = grammarInventory[level].filter((g) => !seen.has(g.point));
+    if (missing.length) findings.push([`${level} grammar lessons`, `${missing.length} inventory point(s) without a lesson, e.g. ${missing.slice(0, 4).map((g) => g.point).join(', ')}`]);
+  }
 }
 
 const total = levels.reduce((a, l) => a + questionBank[l].length, 0);

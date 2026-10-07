@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { levelDetails, levels, type Level, type Question, type QuestionType, type Token } from './levels';
 import { bankSizes, loadBank } from './bank-loader';
+import { GrammarStudy, STUDY_LEVELS, loadGrammarUnits, type StudyData } from './grammar-study';
 import { playNarration, playSfx, rankJapaneseVoices, setSfxEnabled, stopNarration, unlockAudio } from './audio';
 import furiganaReadings from './furigana-map.json' with { type: 'json' };
 
@@ -101,6 +102,7 @@ const DAILY_REVIEW_SLOTS = 3;
 const STORAGE_KEYS = [
   'kuma-level', 'kuma-xp', 'kuma-streak', 'kuma-missed', 'kuma-settings',
   'kuma-mastery-scores', 'kuma-mock-results', 'kuma-daily-seen', 'kuma-daily-log',
+  'kuma-grammar-studied',
 ] as const;
 const BACKUP_FORMAT = 'kuma-no-ryoku/progress@1';
 
@@ -184,8 +186,13 @@ function FuriganaText({ text, furigana }: { text: string; furigana: boolean }) {
       continue;
     }
     flush();
-    const [word, reading] = match;
-    pieces.push(<ruby key={`ruby-${offset}`}>{word}<rt>{reading}</rt></ruby>);
+    const [word, matched] = match;
+    // 人 after a number is the counter にん (三十人), not ひと.
+    const reading = word === '人' && /[一二三四五六七八九十百千万何数０-９0-9]/.test(text[offset - 1] ?? '') ? 'にん' : matched;
+    // An empty reading marks a form whose reading depends on context (止めて is
+    // とめて or やめて): print it bare rather than guess.
+    if (reading) pieces.push(<ruby key={`ruby-${offset}`}>{word}<rt>{reading}</rt></ruby>);
+    else pieces.push(<span key={`bare-${offset}`}>{word}</span>);
     offset += word.length;
   }
   flush();
@@ -222,6 +229,11 @@ export default function Home() {
   const [dailyLog, setDailyLog] = useState<DailyLog>({});
   const [activeMock, setActiveMock] = useState('');
   const [pathwayOpen, setPathwayOpen] = useState(false);
+  const [studyOpen, setStudyOpen] = useState(false);
+  const [studyData, setStudyData] = useState<StudyData | null>(null);
+  // Learned grammar points, keyed by the point itself — never by position, so
+  // adding lessons later can never re-point what a learner has marked.
+  const [studied, setStudied] = useState<Record<string, string[]>>({});
   const [lessonOpen, setLessonOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -287,6 +299,7 @@ export default function Home() {
       setMockResults(read<MockResults>('kuma-mock-results', {}));
       setDailySeen(read<DailySeen>('kuma-daily-seen', {}));
       setDailyLog(read<DailyLog>('kuma-daily-log', {}));
+      setStudied(read<Record<string, string[]>>('kuma-grammar-studied', {}));
       setFurigana(settings.furigana);
       setUnlimitedHearts(settings.unlimitedHearts);
       setVoiceUri(settings.voiceUri);
@@ -349,6 +362,10 @@ export default function Home() {
   const chooseLevel = (next: Level) => {
     playSfx('select');
     setLevel(next);
+    // Study material belongs to one level; switching closes it rather than
+    // showing one level's lessons under another's pathway.
+    setStudyOpen(false);
+    setStudyData(null);
     window.localStorage.setItem('kuma-level', next);
   };
 
@@ -380,6 +397,37 @@ export default function Home() {
     setStep(0); setSelected(null); setChecked(false); setComplete(false);
     setCorrectCount(0); setWrongThisLesson([]); setHearts(5); setHasPlayed(false);
     setLessonOpen(true);
+  };
+
+  const openStudy = () => {
+    playSfx('open');
+    setStudyOpen(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!studyData) loadGrammarUnits(level).then(setStudyData);
+  };
+
+  // Functional update: two quick taps must not both start from the same stale
+  // list, or the second silently undoes the first.
+  const toggleStudied = (point: string) => {
+    if (!(studied[level] ?? []).includes(point)) playSfx('correct');
+    setStudied((prev) => {
+      const list = prev[level] ?? [];
+      return { ...prev, [level]: list.includes(point) ? list.filter((p) => p !== point) : [...list, point] };
+    });
+  };
+  useEffect(() => {
+    if (hydrated.current) window.localStorage.setItem('kuma-grammar-studied', JSON.stringify(studied));
+  }, [studied]);
+
+  /** Drill items whose answer is one of these points, matched the way the audit
+   *  matches them: the point's display form, the point, or an alias. */
+  const studyIndices = (points: string[]) => {
+    if (!studyData) return [];
+    const wanted = new Set(points.flatMap((p) => studyData.accepted[p] ?? []));
+    return bank
+      .map((question, index) => ({ question, index }))
+      .filter(({ question }) => question.itemType === 'Grammar form' && wanted.has(question.options[question.answer ?? 0].replace(/^[～〜]/, '').replace(/[　 ]/g, '')))
+      .map(({ index }) => index);
   };
 
   /** Replay the run that just ended. openLesson() with no arguments would rebuild
@@ -720,7 +768,22 @@ export default function Home() {
         <div>{levels.map((item) => <button key={item} className={level === item ? 'active' : ''} aria-pressed={level === item} onClick={() => chooseLevel(item)}>{item}</button>)}</div>
       </nav>
 
-      {!pathwayOpen ? <><section id="top" className="hero">
+      {studyOpen ? (studyData ? <GrammarStudy
+          level={level}
+          units={studyData.units}
+          legend={studyData.legend}
+          studied={studied[level] ?? []}
+          furigana={furigana}
+          Furigana={FuriganaText}
+          onToggle={toggleStudied}
+          practiceCount={(points) => studyIndices(points).length}
+          onPractise={(points) => openLesson(['GRAMMAR'], ['Grammar form'], studyIndices(points))}
+          onBack={() => { setStudyOpen(false); window.scrollTo({ top: 0 }); }}
+          minQuestions={MIN_UNIT_QUESTIONS}
+          backIcon={<UiIcon name="arrow-left" />}
+          nextIcon={<UiIcon name="arrow-right" />}
+        /> : <section id="top" className="pathway-home"><p className="study-loading">Loading grammar study…</p></section>)
+      : !pathwayOpen ? <><section id="top" className="hero">
         <div className="hero-copy">
           <span className="eyebrow">日本語能力試験 • {level}</span>
           <h1>{details.title.split(' ')[0]}<br /><em>{details.title.split(' ').slice(1).join(' ')}</em></h1>
@@ -774,6 +837,19 @@ export default function Home() {
             {dailyRunsToday ? 'Another round' : 'Start daily mix'}<UiIcon name="arrow-right" />
           </button>
         </section>
+
+        {STUDY_LEVELS.includes(level) && (
+          <section className="daily-card study-card-entry" aria-label={`${level} grammar study`}>
+            <span className="daily-mark" aria-hidden="true">文</span>
+            <div className="daily-copy">
+              <small>文法まとめ • GRAMMAR STUDY</small>
+              <h2>Learn the patterns</h2>
+              <p>Every {level} grammar point with how it attaches, what it means, how it differs from look-alikes, and example sentences with English — then drill each unit.</p>
+              <small className="daily-stat">{(studied[level] ?? []).length} points marked as learned</small>
+            </div>
+            <button className="daily-start" onClick={openStudy}>Open grammar study<UiIcon name="arrow-right" /></button>
+          </section>
+        )}
 
         <div className="mastery-grid" aria-label={`${level} skill progress`}>
           {skillProgress.map((skill) => {
