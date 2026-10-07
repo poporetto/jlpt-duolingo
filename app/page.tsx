@@ -670,14 +670,23 @@ export default function Home() {
     return { level: item, done, size, percent: size ? Math.round((done / size) * 100) : 0, xp: xpByLevel[item] ?? 0 };
   });
   const dailyRunsToday = dailyLog[level]?.day === today() ? dailyLog[level]!.runs : 0;
-  // Unlocking the mocks once needed *every* item at mastery 2 simultaneously. That
-  // was already demanding; after the vocabulary pool it means 5,920 correct answers
-  // at N1, with any single miss resetting that item, so the gate was effectively
-  // unreachable. A share of the bank keeps it a real milestone without making it
-  // a war of attrition against spaced repetition.
-  const MOCK_UNLOCK_SHARE = 0.9;
-  const mockUnlockTarget = Math.ceil(bank.length * MOCK_UNLOCK_SHARE);
-  const curriculumComplete = bank.length > 0 && masteredCount >= mockUnlockTarget;
+  // The mocks unlock once every official 大問 for the level has a solid base of
+  // mastered questions. Any share of the whole bank grows with the bank — 90% was
+  // still ~5,400 correct answers at N1 — while a fixed count per item family is
+  // what a mock actually exercises, and stays reachable however large the pools get.
+  const MOCK_PER_FAMILY = 10;
+  const mockFamilies = useMemo(() => {
+    const families = new Map<string, number[]>();
+    bank.forEach((question, index) => {
+      const list = families.get(question.jpItemType) ?? [];
+      list.push(index);
+      families.set(question.jpItemType, list);
+    });
+    return [...families.entries()].map(([name, indices]) => ({ name, indices, need: Math.min(MOCK_PER_FAMILY, indices.length) }));
+  }, [bank]);
+  const familiesReady = mockFamilies.filter((family) => family.indices.reduce((n, index) => n + (levelMastered.has(index) ? 1 : 0), 0) >= family.need).length;
+  const mockUnlockTarget = mockFamilies.reduce((n, family) => n + family.need, 0);
+  const curriculumComplete = mockFamilies.length > 0 && familiesReady === mockFamilies.length;
   const skillProgress = skills.map((skill) => {
     const relevantStages = levelPathStages.filter((stage) => stage.type === skill.type);
     const relevantQuestions = bank.map((question, index) => ({ question, index })).filter(({ question }) => question.type === skill.type);
@@ -792,7 +801,7 @@ export default function Home() {
             })}
             <section className={`mock-gate ${curriculumComplete ? 'unlocked' : ''}`} aria-label={`${level} full mock tests`}>
               <span className="mock-seal">{curriculumComplete ? '試' : '鍵'}</span>
-              <div className="mock-copy"><small>FINAL CHECKPOINT</small><h2>Full {level} mock tests</h2><p>{curriculumComplete ? 'You have mastered enough of the curriculum. Test every official item family without changing lesson mastery.' : `Master ${mockUnlockTarget} of the ${bank.length} curriculum questions twice across separate attempts to unlock three complete mixed mock forms — ${masteredCount} so far.`}</p></div>
+              <div className="mock-copy"><small>FINAL CHECKPOINT</small><h2>Full {level} mock tests</h2><p>{curriculumComplete ? 'Every item family is ready. Test them all together without changing lesson mastery.' : `Master ${MOCK_PER_FAMILY} questions in every official item family — ${mockUnlockTarget} in all — to unlock three complete mixed mock forms. ${familiesReady} of ${mockFamilies.length} families ready.`}</p></div>
               <div className="mock-forms">{[1, 2, 3].map((form) => {
                 const result = mockResults[level]?.[`form-${form}`];
                 return <button key={form} disabled={!curriculumComplete} onClick={() => openMock(form)}><span>Form {form}</span><b>{result ? `${result.correct}/${result.total}` : curriculumComplete ? 'Start test' : 'Locked'}</b></button>;
