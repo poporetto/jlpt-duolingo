@@ -1,6 +1,8 @@
 import type { Level, Question } from './course-data';
 import { usageItems, paraphraseItems } from './vocabulary-items.ts';
 import vocabBank from './vocab-bank.json' with { type: 'json' };
+import vocabInflected from './vocab-inflected.json' with { type: 'json' };
+import vocabCorpus from './vocab-corpus.json' with { type: 'json' };
 
 type ContextEntry = {
   word: string; reading: string; sentence: string;
@@ -67,6 +69,55 @@ export function contextualVocabularyQuestions(level: Level): Question[] {
       optionNotes: [
         `Correct: ${entry.word}（${entry.reading}）= ${entry.gloss.join('; ')}.`,
         ...entry.distractors.map((d) => `${d.word} = ${d.gloss}. It is the same part of speech and level, so it fits the slot grammatically, but its meaning does not fit this sentence.`),
+      ],
+    };
+  });
+}
+
+type InflectedEntry = {
+  word: string; reading: string; form: string; before: string; after: string;
+  gloss: string[]; distractors: { word: string; form: string; gloss: string }[];
+};
+
+/** 文脈規定 whose answer is a verb or い-adjective. The blank is cut around the
+ *  inflected form the sentence uses and every option is conjugated into that
+ *  same form, as the real paper does (see scripts/build-vocab-inflected.mjs). */
+export function inflectedVocabularyQuestions(level: Level): Question[] {
+  const entries = (vocabInflected as Record<string, InflectedEntry[]>)[level] ?? [];
+  return entries.map((entry) => ({
+    type: 'VOCABULARY' as const, badge: '語彙', itemType: 'Contextual vocabulary', jpItemType: '文脈規定',
+    prompt: CONTEXT_PROMPT[level],
+    tokens: [entry.before, '（　　）', entry.after].filter(Boolean),
+    options: [entry.form, ...entry.distractors.map((d) => d.form)],
+    answer: 0,
+    note: `${entry.form} is ${entry.word}（${entry.reading}）= ${entry.gloss.join('; ')}. All four options are in the same form, so only the meaning decides it.`,
+    optionNotes: [
+      `Correct: ${entry.form}, from ${entry.word}（${entry.reading}）= ${entry.gloss.join('; ')}.`,
+      ...entry.distractors.map((d) => `${d.form}, from ${d.word} = ${d.gloss}. Same form and word class, but the meaning does not fit this sentence.`),
+    ],
+  }));
+}
+
+type CorpusEntry = { word: string; sentence: string; gloss: string[]; distractors: { word: string; gloss: string }[] };
+
+/** 文脈規定 for nouns, な-adjectives and adverbs drawn from the whole Tatoeba
+ *  corpus rather than JMdict's sense-filed examples (scripts/build-vocab-corpus.mjs).
+ *  The answer is the word that stood in the blank, so the item is correct whatever
+ *  sense the sentence uses. */
+export function corpusVocabularyQuestions(level: Level): Question[] {
+  const entries = (vocabCorpus as Record<string, CorpusEntry[]>)[level] ?? [];
+  return entries.map((entry) => {
+    const at = entry.sentence.indexOf(entry.word);
+    return {
+      type: 'VOCABULARY' as const, badge: '語彙', itemType: 'Contextual vocabulary', jpItemType: '文脈規定',
+      prompt: CONTEXT_PROMPT[level],
+      tokens: [entry.sentence.slice(0, at), '（　　）', entry.sentence.slice(at + entry.word.length)].filter(Boolean),
+      options: [entry.word, ...entry.distractors.map((d) => d.word)],
+      answer: 0,
+      note: `${entry.word} = ${entry.gloss.join('; ')}. It is the word this real sentence uses.`,
+      optionNotes: [
+        `Correct: ${entry.word} = ${entry.gloss.join('; ')}.`,
+        ...entry.distractors.map((d) => `${d.word} = ${d.gloss}. Same word class and level, but it does not fit this sentence.`),
       ],
     };
   });

@@ -3,7 +3,7 @@ import { kanjiQuestions, kanjiExtraQuestions } from './kanji-questions.ts';
 import { listeningQuestions, extraListeningQuestions } from './listening-questions.ts';
 import { pictureForText } from './scenes.ts';
 import { readingQuestions, textGrammarQuestions } from './reading-questions.ts';
-import { usageQuestions, paraphraseQuestions, contextualVocabularyQuestions } from './vocabulary-questions.ts';
+import { usageQuestions, paraphraseQuestions, contextualVocabularyQuestions, inflectedVocabularyQuestions, corpusVocabularyQuestions } from './vocabulary-questions.ts';
 import { grammarQuestions, coveredPoints } from './grammar-questions.ts';
 import { levels, type Level, type Question } from './levels.ts';
 
@@ -514,6 +514,18 @@ for (const level of levels) {
 for (const level of levels) {
   const extra = kanjiExtraQuestions(level);
   if (extra.length) questionBank[level] = [...questionBank[level], ...extra];
+}
+
+// 文脈規定 for verbs and い-adjectives, conjugated to match the blank.
+for (const level of levels) {
+  const inflected = inflectedVocabularyQuestions(level);
+  if (inflected.length) questionBank[level] = [...questionBank[level], ...inflected];
+}
+
+// 文脈規定 for nouns, な-adjectives and adverbs from the whole corpus.
+for (const level of levels) {
+  const corpus = corpusVocabularyQuestions(level);
+  if (corpus.length) questionBank[level] = [...questionBank[level], ...corpus];
 }
 
 // Illustrations for the text sections. The real 問題用紙 prints no picture on
