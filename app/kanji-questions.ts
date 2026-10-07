@@ -1,5 +1,6 @@
 import type { Level, Question, Token } from './course-data';
 import kanjiBank from './kanji-bank.json' with { type: 'json' };
+import kanjiExtra from './kanji-extra.json' with { type: 'json' };
 
 /**
  * 漢字読み and 表記 items built from app/kanji-bank.json (see
@@ -58,4 +59,26 @@ export function kanjiQuestions(level: Level): Question[] {
   }));
 
   return [...reading, ...orthography];
+}
+
+/**
+ * 漢字読み items for the kanji the main pool could not reach — chiefly N1, whose
+ * kanji mostly occur in words absent from the JLPT vocabulary list (see
+ * scripts/build-kanji-extra.mjs). Appended as its own block at the end of the
+ * bank so the main pool's indices, which saved progress depends on, never move.
+ */
+export function kanjiExtraQuestions(level: Level): Question[] {
+  const entries = (kanjiExtra as Record<string, Entry[]>)[level] ?? [];
+  return entries.map((entry) => ({
+    type: 'KANJI', badge: '漢字', itemType: 'Kanji reading', jpItemType: '漢字読み',
+    prompt: '＿＿の言葉の読み方として最もよいものを選んでください。',
+    tokens: frame(entry.sentence, entry.word, entry.word, entry.reading),
+    options: [entry.reading, ...entry.distractors],
+    optionNotes: [
+      `Correct in this sentence: ${entry.word} is read ${entry.reading}.`,
+      ...entry.distractors.map((reading) => `${reading} is a sound-based near miss, not a reading JMdict gives for ${entry.word}.`),
+    ],
+    answer: 0,
+    note: `${entry.word} is read ${entry.reading} here. Every distractor is excluded from the readings JMdict lists for this spelling, so only one option can be defended.`,
+  }));
 }

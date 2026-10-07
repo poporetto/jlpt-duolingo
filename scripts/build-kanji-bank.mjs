@@ -21,7 +21,7 @@ import { pipeline } from 'node:stream/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const run = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -45,7 +45,7 @@ const GEMOK = new Set('かきくけこさしすせそたちつてとはひふへ
 const KANJI_RE = /[一-鿿]/;
 
 /** Reject anything Japanese phonotactics disallows — an impossible string is a giveaway. */
-function legal(r) {
+export function legal(r) {
   // Hiragana only: a katakana option (シリング, from an ateji reading) is a
   // giveaway in a list of readings.
   if (!/^[ぁ-ん]+$/.test(r ?? '')) return false;
@@ -176,7 +176,7 @@ function neighbourReadings(word, reading, byKanji, vocab) {
   return out.sort((a, b) => Math.abs(a.length - reading.length) - Math.abs(b.length - reading.length));
 }
 
-function distractorsFor(word, reading, validReadings, kanji, byKanji, vocab) {
+export function distractorsFor(word, reading, validReadings, kanji, byKanji, vocab) {
   const seen = new Set();
   const out = [];
   const register = registerOf(word, reading, kanji);
@@ -399,4 +399,8 @@ async function main() {
   console.log(`app/kanji-bank.json — ${Object.values(out).reduce((a, b) => a + b.reading.length + b.orthography.length, 0)} items, ${(bytes / 1024).toFixed(0)} KB`);
 }
 
-main().catch((error) => { console.error(error); process.exit(1); });
+// Run only when executed directly, so build-kanji-extra.mjs can reuse the
+// distractor logic without regenerating this pool.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => { console.error(error); process.exit(1); });
+}

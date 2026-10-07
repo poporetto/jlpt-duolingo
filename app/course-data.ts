@@ -1,5 +1,5 @@
 import { expandQuestionBank } from './expanded-bank.ts';
-import { kanjiQuestions } from './kanji-questions.ts';
+import { kanjiQuestions, kanjiExtraQuestions } from './kanji-questions.ts';
 import { listeningQuestions, extraListeningQuestions } from './listening-questions.ts';
 import { pictureForText } from './scenes.ts';
 import { readingQuestions, textGrammarQuestions } from './reading-questions.ts';
@@ -505,6 +505,15 @@ for (const level of levels) {
 for (const level of levels) {
   const generated = contextualVocabularyQuestions(level);
   if (generated.length) questionBank[level] = [...questionBank[level], ...generated];
+}
+
+// ---- Blocks below were added after the identity baseline. Each new pool goes in
+// a new block at the very end; growing any earlier block shifts every later index.
+
+// 漢字読み for the kanji the main pool could not reach (mostly N1).
+for (const level of levels) {
+  const extra = kanjiExtraQuestions(level);
+  if (extra.length) questionBank[level] = [...questionBank[level], ...extra];
 }
 
 // Illustrations for the text sections. The real 問題用紙 prints no picture on
