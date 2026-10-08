@@ -6,7 +6,7 @@ import type { Level } from './levels';
 import type { GrammarUnit } from './grammar-lessons';
 import { registerRuby, studyChunks, uniqueInOrder } from './ruby';
 
-type FuriganaComponent = ComponentType<{ text: string; furigana: boolean }>;
+export type FuriganaComponent = ComponentType<{ text: string; furigana: boolean }>;
 
 /** Levels that have study material. Kept here, not in the lessons file, so the
  *  pathway can show the card without loading the material itself. */
@@ -40,7 +40,7 @@ export async function loadGrammarUnits(level: Level): Promise<StudyData> {
  * word with an explicit reading, and everything else goes through the app's
  * usual furigana. English text passes through unchanged.
  */
-function StudyText({ text, furigana, Furigana }: { text: string; furigana: boolean; Furigana: FuriganaComponent }) {
+export function StudyText({ text, furigana, Furigana }: { text: string; furigana: boolean; Furigana: FuriganaComponent }) {
   const parts: ReactNode[] = [];
   const pattern = /［([^］]+)］|\{([^|}]+)\|([^}]+)\}/g;
   let last = 0;
@@ -74,9 +74,11 @@ type Props = {
   minQuestions: number;
   backIcon: ReactNode;
   nextIcon: ReactNode;
+  /** The study hub's tab bar, shown under the back button. */
+  tabs?: ReactNode;
 };
 
-export function GrammarStudy({ level, units, legend, studied, furigana, Furigana, onToggle, practiceCount, onPractise, onBack, minQuestions, backIcon, nextIcon }: Props) {
+export function GrammarStudy({ level, units, legend, studied, furigana, Furigana, onToggle, practiceCount, onPractise, onBack, minQuestions, backIcon, nextIcon, tabs }: Props) {
   const [active, setActive] = useState(0);
   const [english, setEnglish] = useState(true);
   const unit = units[active];
@@ -90,6 +92,7 @@ export function GrammarStudy({ level, units, legend, studied, furigana, Furigana
     <section id="top" className="pathway-home study-home">
       <div className="pathway-heading">
         <button className="pathway-back" onClick={onBack}>{backIcon}{level} pathway</button>
+        {tabs}
         <div className="study-intro">
           <span className="eyebrow">{level} 文法まとめ • GRAMMAR STUDY</span>
           <h1>Learn it, <em>then</em> drill it.</h1>

@@ -6,6 +6,10 @@ import type { ReactNode } from 'react';
 import { levelDetails, levels, type Level, type Question, type QuestionType, type Token } from './levels';
 import { bankSizes, loadBank } from './bank-loader';
 import { GrammarStudy, STUDY_LEVELS, loadGrammarUnits, type StudyData } from './grammar-study';
+import { KanjiStudy, loadKanjiTables, type KanjiTable } from './kanji-study';
+import { ListeningStudy, loadListeningLessons } from './listening-study';
+import type { ListeningLesson } from './listening-lessons';
+import { kanjiDrillWord } from './kanji-drill';
 import { playNarration, playSfx, rankJapaneseVoices, setSfxEnabled, stopNarration, unlockAudio } from './audio';
 import { rubyFor } from './ruby';
 
@@ -102,9 +106,17 @@ const DAILY_REVIEW_SLOTS = 3;
 const STORAGE_KEYS = [
   'kuma-level', 'kuma-xp', 'kuma-streak', 'kuma-missed', 'kuma-settings',
   'kuma-mastery-scores', 'kuma-mock-results', 'kuma-daily-seen', 'kuma-daily-log',
-  'kuma-grammar-studied',
+  'kuma-grammar-studied', 'kuma-kanji-studied', 'kuma-listening-studied',
 ] as const;
 const BACKUP_FORMAT = 'kuma-no-ryoku/progress@1';
+
+/** A kanji table's drill is its weakest questions, not all forty of them. */
+const KANJI_PRACTICE_SIZE = 12;
+
+type StudyTab = 'grammar' | 'kanji' | 'listening';
+const STUDY_TABS: [StudyTab, string, string][] = [['grammar', '文法', 'Grammar'], ['kanji', '漢字', 'Kanji'], ['listening', '聴解', 'Listening']];
+type Marks = Record<string, string[]>;
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 const lessonChunks = (indices: number[], size = 8) => {
   if (!indices.length) return [[]];
@@ -207,7 +219,13 @@ export default function Home() {
   const [studyData, setStudyData] = useState<StudyData | null>(null);
   // Learned grammar points, keyed by the point itself — never by position, so
   // adding lessons later can never re-point what a learner has marked.
-  const [studied, setStudied] = useState<Record<string, string[]>>({});
+  const [studied, setStudied] = useState<Marks>({});
+  // Kanji by character and listening by item type, for the same reason.
+  const [kanjiStudied, setKanjiStudied] = useState<Marks>({});
+  const [listeningStudied, setListeningStudied] = useState<Marks>({});
+  const [studyTab, setStudyTab] = useState<StudyTab>('grammar');
+  const [kanjiTables, setKanjiTables] = useState<KanjiTable[] | null>(null);
+  const [listeningLessons, setListeningLessons] = useState<ListeningLesson[] | null>(null);
   const [lessonOpen, setLessonOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -273,7 +291,9 @@ export default function Home() {
       setMockResults(read<MockResults>('kuma-mock-results', {}));
       setDailySeen(read<DailySeen>('kuma-daily-seen', {}));
       setDailyLog(read<DailyLog>('kuma-daily-log', {}));
-      setStudied(read<Record<string, string[]>>('kuma-grammar-studied', {}));
+      setStudied(read<Marks>('kuma-grammar-studied', {}));
+      setKanjiStudied(read<Marks>('kuma-kanji-studied', {}));
+      setListeningStudied(read<Marks>('kuma-listening-studied', {}));
       setFurigana(settings.furigana);
       setUnlimitedHearts(settings.unlimitedHearts);
       setVoiceUri(settings.voiceUri);
@@ -338,8 +358,11 @@ export default function Home() {
     setLevel(next);
     // Study material belongs to one level; switching closes it rather than
     // showing one level's lessons under another's pathway.
+    stopNarration();
     setStudyOpen(false);
     setStudyData(null);
+    setKanjiTables(null);
+    setListeningLessons(null);
     window.localStorage.setItem('kuma-level', next);
   };
 
@@ -351,6 +374,7 @@ export default function Home() {
 
   /** Build a run: optionally one skill only, and always lead with what you got wrong last time. */
   const openLesson = (types?: QuestionType[], itemTypes?: string[], questionIndices?: number[]) => {
+    stopNarration();
     unlockAudio();
     playSfx('open');
     const previously = missed[level] ?? [];
@@ -373,25 +397,70 @@ export default function Home() {
     setLessonOpen(true);
   };
 
-  const openStudy = () => {
+  /** Each tab's material loads the first time the tab is opened. */
+  const showStudyTab = (tab: StudyTab) => {
+    stopNarration();
+    setStudyTab(tab);
+    if (tab === 'grammar' && !studyData) loadGrammarUnits(level).then(setStudyData);
+    if (tab === 'kanji' && !kanjiTables) loadKanjiTables(level).then(setKanjiTables);
+    if (tab === 'listening' && !listeningLessons) loadListeningLessons(level).then(setListeningLessons);
+  };
+  const openStudy = (tab: StudyTab = 'grammar') => {
     playSfx('open');
     setStudyOpen(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (!studyData) loadGrammarUnits(level).then(setStudyData);
+    showStudyTab(tab);
+  };
+  const closeStudy = () => {
+    stopNarration();
+    setStudyOpen(false);
+    window.scrollTo({ top: 0 });
   };
 
   // Functional update: two quick taps must not both start from the same stale
   // list, or the second silently undoes the first.
-  const toggleStudied = (point: string) => {
-    if (!(studied[level] ?? []).includes(point)) playSfx('correct');
-    setStudied((prev) => {
+  const toggleMark = (marks: Marks, setMarks: React.Dispatch<React.SetStateAction<Marks>>) => (item: string) => {
+    if (!(marks[level] ?? []).includes(item)) playSfx('correct');
+    setMarks((prev) => {
       const list = prev[level] ?? [];
-      return { ...prev, [level]: list.includes(point) ? list.filter((p) => p !== point) : [...list, point] };
+      return { ...prev, [level]: list.includes(item) ? list.filter((p) => p !== item) : [...list, item] };
     });
   };
+  const toggleStudied = toggleMark(studied, setStudied);
   useEffect(() => {
     if (hydrated.current) window.localStorage.setItem('kuma-grammar-studied', JSON.stringify(studied));
   }, [studied]);
+  useEffect(() => {
+    if (hydrated.current) window.localStorage.setItem('kuma-kanji-studied', JSON.stringify(kanjiStudied));
+  }, [kanjiStudied]);
+  useEffect(() => {
+    if (hydrated.current) window.localStorage.setItem('kuma-listening-studied', JSON.stringify(listeningStudied));
+  }, [listeningStudied]);
+
+  /** Kanji questions whose word uses any of these kanji, weakest first. */
+  const kanjiIndices = (chars: string[]) => {
+    const set = new Set(chars);
+    const previously = missed[level] ?? [];
+    return bank
+      .map((question, index) => ({ question, index }))
+      .filter(({ question }) => question.type === 'KANJI' && [...kanjiDrillWord(question)].some((c) => set.has(c)))
+      .map(({ index }) => index)
+      .sort((a, b) => Number(previously.includes(b)) - Number(previously.includes(a)) || (masteryScores[level]?.[String(a)] ?? 0) - (masteryScores[level]?.[String(b)] ?? 0));
+  };
+
+  /** A listening type's items, minus the ones its lesson walks through. */
+  const listeningIndices = (type: string) => {
+    const worked = new Set(listeningLessons?.find((l) => l.type === type)?.worked.map((w) => w.audio) ?? []);
+    return bank
+      .map((question, index) => ({ question, index }))
+      .filter(({ question }) => question.type === 'LISTENING' && question.jpItemType === type && !worked.has(question.audio ?? ''))
+      .map(({ index }) => index);
+  };
+
+  const playStudyClip = (q: Question, onEnd: () => void) => {
+    unlockAudio();
+    playNarration(q, level, { basePath: BASE_PATH, voiceUri, voices, onEnd });
+  };
 
   /** Drill items whose answer is one of these points, matched the way the audit
    *  matches them: the point's display form, the point, or an alias. */
@@ -742,7 +811,51 @@ export default function Home() {
         <div>{levels.map((item) => <button key={item} className={level === item ? 'active' : ''} aria-pressed={level === item} onClick={() => chooseLevel(item)}>{item}</button>)}</div>
       </nav>
 
-      {studyOpen ? (studyData ? <GrammarStudy
+      {studyOpen ? (() => {
+        const tabs = (
+          <div className="study-tabs" role="tablist" aria-label="Study material">
+            {STUDY_TABS.map(([id, jp, en]) => (
+              <button key={id} role="tab" aria-selected={studyTab === id} className={studyTab === id ? 'active' : ''} onClick={() => { playSfx('select'); showStudyTab(id); }}>
+                <b lang="ja">{jp}</b><small>{en}</small>
+              </button>
+            ))}
+          </div>
+        );
+        const loading = (what: string) => <section id="top" className="pathway-home"><div className="pathway-heading"><button className="pathway-back" onClick={closeStudy}><UiIcon name="arrow-left" />{level} pathway</button>{tabs}</div><p className="study-loading">Loading {what}…</p></section>;
+        if (studyTab === 'kanji') return kanjiTables ? <KanjiStudy
+          level={level}
+          tables={kanjiTables}
+          studied={kanjiStudied[level] ?? []}
+          furigana={furigana}
+          onToggle={toggleMark(kanjiStudied, setKanjiStudied)}
+          practiceCount={(chars) => kanjiIndices(chars).length}
+          practiceSize={KANJI_PRACTICE_SIZE}
+          onPractise={(chars) => openLesson(['KANJI'], undefined, kanjiIndices(chars).slice(0, KANJI_PRACTICE_SIZE))}
+          onBack={closeStudy}
+          minQuestions={MIN_UNIT_QUESTIONS}
+          backIcon={<UiIcon name="arrow-left" />}
+          nextIcon={<UiIcon name="arrow-right" />}
+          tabs={tabs}
+        /> : loading('kanji tables');
+        if (studyTab === 'listening') return listeningLessons && bank.length ? <ListeningStudy
+          level={level}
+          lessons={listeningLessons}
+          bank={bank}
+          studied={listeningStudied[level] ?? []}
+          furigana={furigana}
+          Furigana={FuriganaText}
+          onToggle={toggleMark(listeningStudied, setListeningStudied)}
+          onPlay={playStudyClip}
+          onStop={stopNarration}
+          practiceCount={(type) => listeningIndices(type).length}
+          onPractise={(type) => openLesson(['LISTENING'], undefined, listeningIndices(type))}
+          onBack={closeStudy}
+          minQuestions={MIN_UNIT_QUESTIONS}
+          backIcon={<UiIcon name="arrow-left" />}
+          nextIcon={<UiIcon name="arrow-right" />}
+          tabs={tabs}
+        /> : loading('listening study');
+        return studyData ? <GrammarStudy
           level={level}
           units={studyData.units}
           legend={studyData.legend}
@@ -752,11 +865,13 @@ export default function Home() {
           onToggle={toggleStudied}
           practiceCount={(points) => studyIndices(points).length}
           onPractise={(points) => openLesson(['GRAMMAR'], ['Grammar form'], studyIndices(points))}
-          onBack={() => { setStudyOpen(false); window.scrollTo({ top: 0 }); }}
+          onBack={closeStudy}
           minQuestions={MIN_UNIT_QUESTIONS}
           backIcon={<UiIcon name="arrow-left" />}
           nextIcon={<UiIcon name="arrow-right" />}
-        /> : <section id="top" className="pathway-home"><p className="study-loading">Loading grammar study…</p></section>)
+          tabs={tabs}
+        /> : loading('grammar study');
+      })()
       : !pathwayOpen ? <><section id="top" className="hero">
         <div className="hero-copy">
           <span className="eyebrow">日本語能力試験 • {level}</span>
@@ -813,15 +928,19 @@ export default function Home() {
         </section>
 
         {STUDY_LEVELS.includes(level) && (
-          <section className="daily-card study-card-entry" aria-label={`${level} grammar study`}>
-            <span className="daily-mark" aria-hidden="true">文</span>
+          <section className="daily-card study-card-entry" aria-label={`${level} study material`}>
+            <span className="daily-mark" aria-hidden="true">学</span>
             <div className="daily-copy">
-              <small>文法まとめ • GRAMMAR STUDY</small>
-              <h2>Learn the patterns</h2>
-              <p>Every {level} grammar point with how it attaches, what it means, how it differs from look-alikes, and example sentences with English — then drill each unit.</p>
-              <small className="daily-stat">{(studied[level] ?? []).length} points marked as learned</small>
+              <small>文法・漢字・聴解 • STUDY</small>
+              <h2>Learn it, then drill it</h2>
+              <p>Grammar patterns with explanations and examples, kanji tables with the readings real words use, and a guide to each listening item type with worked examples — each with its own drill.</p>
+              <small className="daily-stat">Learned: {plural((studied[level] ?? []).length, 'grammar point')} • {(kanjiStudied[level] ?? []).length} kanji • {plural((listeningStudied[level] ?? []).length, 'listening type')}</small>
             </div>
-            <button className="daily-start" onClick={openStudy}>Open grammar study<UiIcon name="arrow-right" /></button>
+            <div className="study-entry-buttons">
+              {STUDY_TABS.map(([id, jp, en]) => (
+                <button key={id} className="daily-start" onClick={() => openStudy(id)}><span lang="ja">{jp}</span> {en}<UiIcon name="arrow-right" /></button>
+              ))}
+            </div>
           </section>
         )}
 

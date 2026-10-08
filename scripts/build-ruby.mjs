@@ -12,6 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { questionBank, levels } from '../app/course-data.ts';
 import { grammarLessons } from '../app/grammar-lessons.ts';
+import { listeningLessons, listeningStrings } from '../app/listening-lessons.ts';
 import { rubyStringsOf, studyChunks, uniqueInOrder, UI_RUBY_STRINGS } from '../app/ruby.ts';
 import { existsSync } from 'node:fs';
 
@@ -40,6 +41,26 @@ for (const level of levels) {
   console.log(`${level}: ${strings.length} strings annotated`);
 }
 
+/** Read a sentence with ［…］ and {漢字|かな} markup whole, so each chunk gets
+ *  its slice of the sentence's reading rather than one guessed in isolation. */
+function readMarkedSentence(sentence, known) {
+  const frags = [];
+  const walk = (text) => {
+    const re = /［([^］]+)］|\{([^|}]+)\|([^}]+)\}/g;
+    let last = 0;
+    let m;
+    while ((m = re.exec(text))) {
+      frags.push({ text: text.slice(last, m.index), plain: true });
+      if (m[1] !== undefined) walk(m[1]);
+      else frags.push({ text: m[2], plain: false });
+      last = re.lastIndex;
+    }
+    frags.push({ text: text.slice(last), plain: true });
+  };
+  walk(sentence);
+  fragmentsInContext(frags, known);
+}
+
 // Lesson text: each example is read whole, markers removed, and its chunks get
 // their slices; English explanations are read chunk by chunk.
 for (const [level, units] of Object.entries(grammarLessons)) {
@@ -48,22 +69,7 @@ for (const [level, units] of Object.entries(grammarLessons)) {
   for (const unit of units) for (const lesson of unit.points) {
     for (const field of [lesson.explanation, lesson.compare ?? '']) all.push(...studyChunks(field));
     for (const ex of lesson.examples) {
-      const frags = [];
-      const pattern = /［([^］]+)］|\{([^|}]+)\|([^}]+)\}/g;
-      const walk = (text) => {
-        let last = 0;
-        let m;
-        const re = new RegExp(pattern.source, 'g');
-        while ((m = re.exec(text))) {
-          frags.push({ text: text.slice(last, m.index), plain: true });
-          if (m[1] !== undefined) walk(m[1]);
-          else frags.push({ text: m[2], plain: false });
-          last = re.lastIndex;
-        }
-        frags.push({ text: text.slice(last), plain: true });
-      };
-      walk(ex.jp);
-      fragmentsInContext(frags, known);
+      readMarkedSentence(ex.jp, known);
       all.push(...studyChunks(ex.jp));
     }
   }
@@ -71,4 +77,14 @@ for (const [level, units] of Object.entries(grammarLessons)) {
   const encoded = strings.map((s) => encode(known.get(s) ?? annotate(s)));
   await writeFile(path.join(root, 'app', 'banks', `lessons-${level}.ruby.json`), JSON.stringify(encoded));
   console.log(`lessons ${level}: ${strings.length} strings annotated`);
+}
+
+// Listening lessons: signal-phrase sentences are read whole; the rest chunk by chunk.
+for (const [level, lessons] of Object.entries(listeningLessons)) {
+  const known = new Map();
+  for (const lesson of lessons) for (const s of lesson.signals) readMarkedSentence(s.jp, known);
+  const strings = listeningStrings(lessons);
+  const encoded = strings.map((s) => encode(known.get(s) ?? annotate(s)));
+  await writeFile(path.join(root, 'app', 'banks', `listening-${level}.ruby.json`), JSON.stringify(encoded));
+  console.log(`listening ${level}: ${strings.length} strings annotated`);
 }

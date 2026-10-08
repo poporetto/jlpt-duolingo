@@ -11,6 +11,9 @@ import { identityOf } from './bank-identity.mjs';
 import frozen from './bank-identity.json' with { type: 'json' };
 import { grammarInventory } from '../app/grammar-inventory.ts';
 import { grammarLessons } from '../app/grammar-lessons.ts';
+import { listeningLessons, listeningStrings } from '../app/listening-lessons.ts';
+import kanjiTables from '../app/kanji-tables.json' with { type: 'json' };
+import { kanjiDrillWord } from '../app/kanji-drill.ts';
 import { rubyStringsOf, studyChunks, uniqueInOrder, UI_RUBY_STRINGS } from '../app/ruby.ts';
 import { readFileSync as readRuby } from 'node:fs';
 
@@ -252,6 +255,64 @@ for (const level of levels) {
     // Once a level has lessons, every inventory point needs one.
     const missing = grammarInventory[level].filter((g) => !seen.has(g.point));
     if (missing.length) findings.push([`${level} grammar lessons`, `${missing.length} inventory point(s) without a lesson, e.g. ${missing.slice(0, 4).map((g) => g.point).join(', ')}`]);
+  }
+}
+
+// Listening study. Worked examples point into the bank by audio id; a dangling
+// id, a missing clip (playback would silently fall back to speech synthesis) or
+// a key line on the narrator would all ship as broken lessons.
+{
+  const BAD = /[A-Za-zＡ-Ｚａ-ｚ가-힯Ѐ-ӿ]/;
+  for (const [level, lessons] of Object.entries(listeningLessons)) {
+    const items = questionBank[level].filter((q) => q.type === 'LISTENING');
+    const types = new Set(items.map((q) => q.jpItemType));
+    for (const t of types) if (!lessons.some((l) => l.type === t)) findings.push([`${level} listening study`, `no lesson for ${t}`]);
+    for (const lesson of lessons) {
+      const where = `${level} listening ${lesson.type}`;
+      if (!types.has(lesson.type)) findings.push([where, 'lesson for a type the bank does not have']);
+      if (lesson.worked.length < 2) findings.push([where, 'fewer than two worked examples']);
+      if (lesson.signals.length < 3) findings.push([where, 'fewer than three signal phrases']);
+      const drill = items.filter((q) => q.jpItemType === lesson.type && !lesson.worked.some((w) => w.audio === q.audio));
+      if (drill.length < 4) findings.push([where, `only ${drill.length} items left to drill once worked examples are set aside`]);
+      for (const w of lesson.worked) {
+        const q = items.find((x) => x.audio === w.audio);
+        if (!q) { findings.push([where, `worked example ${w.audio} is not in the bank`]); continue; }
+        if (q.jpItemType !== lesson.type) findings.push([where, `worked example ${w.audio} is a ${q.jpItemType} item`]);
+        if (!clips.has(w.audio)) findings.push([where, `worked example ${w.audio} has no recorded clip`]);
+        const line = q.narration?.[w.keyLine];
+        if (!line || line.speaker === 'narrator') findings.push([where, `worked example ${w.audio}: key line ${w.keyLine} is missing or the narrator`]);
+      }
+      for (const sig of lesson.signals) {
+        const spans = [...sig.jp.matchAll(/［([^］]+)］/g)];
+        if (spans.length !== 1) findings.push([where, `signal sentence needs exactly one ［…］ span: ${sig.jp}`]);
+        const plain = sig.jp.replace(/[［］]/g, '');
+        if (BAD.test(plain)) findings.push([where, `non-Japanese character in signal sentence: ${plain}`]);
+        if (/[ぁ-んァ-ヶ一-鿿]/.test(sig.en) || !sig.en.trim()) findings.push([where, `signal translation missing or not English: ${sig.en}`]);
+      }
+    }
+    let encoded = [];
+    try { encoded = JSON.parse(readRuby(`app/banks/listening-${level}.ruby.json`, 'utf8')); } catch { /* missing */ }
+    const strings = listeningStrings(lessons);
+    if (encoded.length !== strings.length) findings.push([`${level} listening furigana`, `annotations cover ${encoded.length} strings but the lessons render ${strings.length} — run npm run banks`]);
+  }
+}
+
+// Kanji tables: every kanji in a table is one the level lists, each table can
+// be drilled, and the per-kanji ruby actually spells out the word's reading.
+for (const [level, tables] of Object.entries(kanjiTables)) {
+  const bank = questionBank[level].filter((q) => q.type === 'KANJI');
+  for (const table of tables) {
+    const set = new Set(table.kanji.map((k) => k.ch));
+    const drill = bank.filter((q) => [...kanjiDrillWord(q)].some((c) => set.has(c))).length;
+    if (drill < 4) findings.push([`${level} ${table.id}`, `only ${drill} kanji questions to drill`]);
+    for (const k of table.kanji) for (const ex of k.examples) {
+      if (!ex.word.includes(k.ch)) findings.push([`${level} ${table.id}`, `example ${ex.word} does not contain ${k.ch}`]);
+      let rebuilt = '';
+      let at = 0;
+      for (const [start, len, r] of ex.ruby) { rebuilt += ex.word.slice(at, start).replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60)) + r; at = start + len; }
+      rebuilt += ex.word.slice(at).replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+      if (rebuilt !== ex.reading) findings.push([`${level} ${table.id}`, `ruby for ${ex.word} spells ${rebuilt}, not ${ex.reading}`]);
+    }
   }
 }
 

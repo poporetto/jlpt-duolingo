@@ -335,7 +335,7 @@ footer a { color:var(--green); }
 .study-unit-head { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; }
 .study-unit-head small { color:var(--level-accent); font-size:10px; font-weight:800; letter-spacing:.14em; }
 .study-unit-head h2 { font-family:var(--font-editorial); font-size:28px; margin:4px 0 6px; }
-.study-unit-head h2 span { font-size:15px; color:#7e837d; margin-left:6px; }
+.study-unit-head h2 > span { font-size:15px; color:#7e837d; margin-left:6px; }
 .study-unit-head p { margin:0; color:#5f665f; font-size:14px; }
 .study-toggle { display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#5f665f; border:1px solid var(--line); border-radius:99px; padding:8px 14px; background:#fffdf8; cursor:pointer; }
 .study-card { border:1px solid var(--line); border-radius:22px; background:#fffdf8; padding:22px 24px; box-shadow:0 6px 0 rgba(65,57,42,.05); transition:border-color .2s ease; }
@@ -365,6 +365,60 @@ mark.study-span { background:linear-gradient(transparent 58%,color-mix(in srgb,v
 .study-legend dl div { display:grid; grid-template-columns:110px 1fr; }
 .study-legend dt { font-weight:800; }
 .study-legend dd { margin:0; }
+/* Study hub tabs and entry card */
+.study-tabs { display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; }
+.study-tabs button { display:inline-flex; align-items:baseline; gap:8px; border:1px solid var(--line); border-radius:99px; background:#fffdf8; padding:9px 18px; color:#5f665f; transition:.15s ease; }
+.study-tabs button b { font-size:17px; color:var(--ink); }
+.study-tabs button small { font-size:12px; font-weight:700; }
+.study-tabs button.active { background:var(--level-accent,var(--green)); border-color:var(--level-accent,var(--green)); color:#fff; }
+.study-tabs button.active b { color:#fff; }
+.study-entry-buttons { display:grid; gap:8px; align-self:center; }
+.study-entry-buttons .daily-start { justify-content:space-between; }
+
+/* Kanji tables (漢字表) */
+.kanji-preview { letter-spacing:.06em; }
+.kanji-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px; }
+.kanji-card { display:flex; flex-direction:column; gap:10px; padding:18px; }
+.kanji-card .study-learned { align-self:flex-start; margin-top:auto; }
+.kanji-head { display:flex; gap:14px; align-items:center; }
+.kanji-char { font-size:52px; line-height:1; font-weight:600; color:var(--level-accent); min-width:58px; text-align:center; font-family:"Hiragino Mincho ProN","Yu Mincho",serif; }
+.kanji-meaning { margin:0; font-family:var(--font-editorial); font-size:16px; line-height:1.3; }
+.kanji-head small { color:#8b8b82; font-size:11px; }
+.kanji-readings { display:grid; gap:4px; margin:0; font-size:15px; }
+.kanji-readings div { display:flex; gap:8px; align-items:baseline; }
+.kanji-readings dt { font-weight:800; color:#fff; background:var(--level-accent,var(--green)); border-radius:6px; padding:0 6px; font-size:11px; }
+.kanji-readings dd { margin:0; font-weight:700; }
+.kanji-readings.hidden dd { color:transparent; background:#ebe5d7; border-radius:6px; min-width:80px; }
+.kanji-examples { list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+.kanji-examples li { display:grid; }
+.kanji-word { font-size:19px; line-height:1.9; }
+.kanji-word b { color:var(--level-accent); }
+.kanji-examples small { color:#7a807a; font-size:12px; line-height:1.35; }
+
+/* Listening study (聴解まとめ) */
+.listen-section, .listen-worked-title { font-size:18px !important; color:var(--ink) !important; letter-spacing:0 !important; }
+.listen-sub { margin:14px 0 6px; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--level-accent); }
+.listen-list { margin:0; padding-left:20px; display:grid; gap:6px; line-height:1.65; color:#3d453f; }
+.listen-list.traps li::marker { content:"⚠ "; }
+.listen-signals { display:grid; gap:14px; margin-top:12px; }
+.listen-signal { border-top:1px solid var(--line); padding-top:12px; }
+.listen-signal-head { display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; }
+.listen-signal-head b { font-size:18px; color:var(--level-accent); }
+.listen-signal-head small { color:#7e837d; font-size:13px; }
+.listen-play { border:0; border-radius:99px; background:var(--level-accent,var(--green)); color:#fff; font-weight:800; padding:9px 18px; font-size:13px; }
+.listen-play.on { background:#3d453f; }
+.listen-setting { margin:10px 0 2px; color:#5f665f; font-size:15px; line-height:1.9; }
+.listen-question { margin:0 0 12px; font-weight:800; font-size:17px; line-height:1.9; }
+.listen-reveal { display:flex; gap:8px; flex-wrap:wrap; }
+.listen-transcript { list-style:none; margin:14px 0 0; padding:0; display:grid; gap:6px; }
+.listen-transcript li { display:grid; grid-template-columns:28px 1fr; gap:8px; font-size:17px; line-height:1.9; padding:2px 8px; border-radius:10px; }
+.listen-transcript li.key { background:color-mix(in srgb,var(--level-accent,var(--green)),white 82%); box-shadow:inset 3px 0 0 var(--level-accent,var(--green)); }
+.listen-speaker { font-weight:800; color:#8b8b82; }
+.listen-answer { margin-top:14px; background:#f6f1e4; border-radius:14px; padding:12px 16px; }
+.listen-answer ul { margin:0 0 8px; padding-left:20px; display:grid; gap:2px; font-size:16px; line-height:1.9; color:#7a807a; }
+.listen-answer li.right { color:var(--ink); font-weight:800; }
+.listen-answer li.right::marker { content:"✓ "; color:var(--green); }
+.listen-answer p { margin:0; line-height:1.65; color:#3d453f; font-size:14px; }
 @media (max-width:760px) {
   .study-layout { grid-template-columns:1fr; }
   .study-units { position:static; max-height:none; grid-auto-flow:column; grid-auto-columns:minmax(170px,1fr); overflow-x:auto; padding-bottom:6px; }
@@ -372,4 +426,8 @@ mark.study-span { background:linear-gradient(transparent 58%,color-mix(in srgb,v
   .study-card-top { flex-wrap:wrap; }
   .study-jp { font-size:17px; }
   .study-foot { flex-direction:column; align-items:stretch; }
+  .kanji-grid { grid-template-columns:1fr; }
+  .study-tabs { flex-wrap:nowrap; }
+  .study-tabs button { flex:1; flex-direction:column; align-items:center; gap:0; padding:8px 6px; border-radius:16px; }
+  .study-entry-buttons { grid-template-columns:1fr; }
 }

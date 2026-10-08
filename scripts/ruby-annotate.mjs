@@ -25,6 +25,7 @@ const kata2hira = (s) => s.replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.ch
 const OVERRIDES = {
   日本: 'にほん',        // IPADIC prefers にっぽん
   四時: 'よじ',
+  二名: 'にめい',        // IPADIC reads にみょう
   四時間: 'よじかん',
   何千: 'なんぜん',
   二十歳: 'はたち',
