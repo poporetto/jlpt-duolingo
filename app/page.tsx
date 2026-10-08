@@ -1,5 +1,6 @@
 'use client';
 
+import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -50,6 +51,9 @@ type MockResults = Partial<Record<Level, Record<string, { correct: number; total
 type UiIconName = 'arrow-right' | 'arrow-left' | 'close' | 'heart' | 'replay' | 'play' | 'pause';
 
 function UiIcon({ name }: { name: UiIconName }) {
+  // Arrows come from Phosphor's bold weight: thick strokes with rounded ends.
+  if (name === 'arrow-right') return <ArrowRight className="ui-icon ui-icon-arrow" weight="bold" aria-hidden="true" />;
+  if (name === 'arrow-left') return <ArrowLeft className="ui-icon ui-icon-arrow" weight="bold" aria-hidden="true" />;
   return <span className={`ui-icon ui-icon-${name}`} aria-hidden="true" />;
 }
 /** How many times each question has been served in daily mode, so a run can

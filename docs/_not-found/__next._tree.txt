@@ -1,2 +1,2 @@
-:HL["/jlpt-duolingo/_next/static/chunks/0ux-4ku6bk1ly.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"/_not-found","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}},"staleTime":300,"buildId":"VqxcjoOVeG-OgAyt01P5J"}
+:HL["/jlpt-duolingo/_next/static/chunks/11u9a7nxdwdav.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"/_not-found","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}},"staleTime":300,"buildId":"EX7jPm4-W3C4kBPBNJLRx"}

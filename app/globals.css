@@ -6,15 +6,8 @@ html { scroll-behavior:smooth; }
 body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--font-ui); }
 button,a { font:inherit; }
 button { cursor:pointer; }
+.ui-icon-arrow { width:20px; height:20px; }
 .ui-icon { position:relative; display:inline-block; flex:0 0 auto; width:20px; height:20px; color:currentColor; }
-.ui-icon-arrow-right,.ui-icon-arrow-left { width:22px; height:16px; }
-/* Shaft and head are both centred on y=8 so the two meet. The head needs its own
-   box-sizing: the `*` reset above does not match pseudo-elements, so without this
-   its 4px borders are added outside the 9px box — pushing the head 2px below the
-   shaft and throwing the rotated tip out past the 22px icon. */
-.ui-icon-arrow-right::before,.ui-icon-arrow-left::before { content:''; position:absolute; left:0; top:6px; width:16px; height:4px; border-radius:99px; background:currentColor; }
-.ui-icon-arrow-right::after,.ui-icon-arrow-left::after { content:''; box-sizing:border-box; position:absolute; left:9px; top:3.5px; width:9px; height:9px; border-top:4px solid currentColor; border-right:4px solid currentColor; border-radius:2px; transform:rotate(45deg); }
-.ui-icon-arrow-left { transform:scaleX(-1); }
 .ui-icon-close::before,.ui-icon-close::after { content:''; position:absolute; left:1px; top:8px; width:19px; height:4px; border-radius:99px; background:currentColor; }
 .ui-icon-close::before { transform:rotate(45deg); }.ui-icon-close::after { transform:rotate(-45deg); }
 .ui-icon-heart { width:16px; height:16px; margin:1px 2px 0 1px; transform:rotate(-45deg); transform-origin:50% 57%; background:currentColor; border-radius:3px 0 4px 0; }
@@ -113,7 +106,7 @@ button { cursor:pointer; }
 .pathway-unit.completed .pathway-step { background:#d9a631; box-shadow:0 4px 0 #ac7e1c; }.pathway-unit-icon { width:58px; height:58px; display:grid; place-items:center; border-radius:17px; background:#f3eee3; }.pathway-unit-icon img { width:52px; height:52px; object-fit:contain; }
 .pathway-kanji .pathway-unit-icon { background:#f8e5af; }.pathway-vocabulary .pathway-unit-icon { background:#d9ebe2; }.pathway-grammar .pathway-unit-icon { background:#f8ddd5; }.pathway-reading .pathway-unit-icon { background:#e3d9ee; }.pathway-listening .pathway-unit-icon { background:#dbe8f1; }
 .pathway-unit small { color:var(--level-accent); font-size:9px; font-weight:800; letter-spacing:.11em; }.pathway-unit h2 { margin:5px 0 3px; font-family:var(--font-editorial); font-size:20px; }.pathway-unit p { margin:0; color:#777e78; font-size:12px; line-height:1.45; }
-.pathway-unit>button { min-width:90px; border:0; border-radius:99px; background:var(--green); color:white; padding:11px 14px; font-size:11px; font-weight:800; box-shadow:0 4px 0 #174b39; display:inline-flex; align-items:center; justify-content:center; gap:9px; }.pathway-unit>button .ui-icon { width:17px; height:14px; }.pathway-unit.completed>button { background:#806c42; box-shadow:0 4px 0 #5c4b2c; }
+.pathway-unit>button { min-width:90px; border:0; border-radius:99px; background:var(--green); color:white; padding:11px 14px; font-size:11px; font-weight:800; box-shadow:0 4px 0 #174b39; display:inline-flex; align-items:center; justify-content:center; gap:9px; }.pathway-unit>button .ui-icon { width:16px; height:16px; }.pathway-unit.completed>button { background:#806c42; box-shadow:0 4px 0 #5c4b2c; }
 .pathway-unit>button:disabled { cursor:not-allowed; background:#d6d1c7; color:#777a74; box-shadow:0 4px 0 #b8b3aa; }
 .mock-gate { position:relative; z-index:1; display:grid; grid-template-columns:70px 1fr auto; align-items:center; gap:18px; margin-top:24px; padding:24px; border:1px dashed #b9b1a2; border-radius:25px; background:#eee9df; color:#777a74; }
 .mock-gate.unlocked { border-style:solid; border-color:#d8bd76; background:linear-gradient(135deg,#fffdf8,#f9edc9); color:var(--ink); box-shadow:0 7px 0 rgba(65,57,42,.055); }
